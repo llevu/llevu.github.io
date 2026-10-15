@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Llevu · Administración</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self';
+  script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
+  style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com;
+  font-src 'self' data: https://fonts.gstatic.com;
+  img-src 'self' data: blob: https://*.cartocdn.com https://*.supabase.co;
+  connect-src 'self' https://*.supabase.co wss://*.supabase.co;
+  media-src 'self' blob:">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230B132B'/%3E%3Ccircle cx='42' cy='22' r='9' fill='%230A5AFF'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<style>
+:root{
+  --azul:#0A5AFF;--azul-2:#0842C4;--azul-suave:#EAF1FF;--azul-borde:#CFE0FF;
+  --bg:#F4F7FD;--panel:#FFFFFF;--panel2:#F5F8FE;--line:#E4EAF4;--line2:#CBD8EC;
+  --text:#0D1B2E;--muted:#5B6E8C;--dim:#8496AF;--ok:#0FA958;--bad:#E1443F;--warn:#E0912A;
+  --sombra:0 6px 24px rgba(13,45,110,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root{--azul:#4C8DFF;--azul-2:#9CC0FF;--azul-suave:#16233A;--azul-borde:#28456F;
+    --bg:#0C121C;--panel:#151E2D;--panel2:#1B2634;--line:#26313F;--line2:#3A4A60;
+    --text:#E8EEF8;--muted:#9BABC4;--dim:#7386A0;--ok:#2BC275;--bad:#F26B66;--warn:#E9A94A;--sombra:0 6px 24px rgba(0,0,0,.4)}
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.45 Inter,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
+h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif;margin:0;letter-spacing:-.02em}
+.num{font-family:"Space Grotesk",Inter,sans-serif;font-variant-numeric:tabular-nums}
+.dim{color:var(--dim);font-size:12.5px}
+a{color:var(--azul)}
+
+/* acceso */
+.login{min-height:100dvh;display:grid;place-items:center;padding:16px;background:linear-gradient(150deg,#0B132B,#0842C4)}
+.login .box{width:min(400px,100%);background:var(--panel);border-radius:20px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login h1{font-size:22px;margin-bottom:4px}
+.field{margin:12px 0}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+.input{width:100%;padding:11px 13px;border-radius:12px;border:1.5px solid var(--line);background:var(--panel2);outline:none}
+.input:focus{border-color:var(--azul)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:11px;border:1.5px solid var(--line);background:var(--panel2);font-weight:600;font-size:13px}
+a.btn{text-decoration:none}
+.btn.primary{background:var(--azul);border-color:var(--azul);color:#fff}
+.btn.danger{color:var(--bad);border-color:#F6D8D7}
+.btn.sm{padding:5px 9px;font-size:12px;border-radius:9px}
+.btn.full{width:100%}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:8px}
+
+/* tablero */
+header{position:sticky;top:0;z-index:900;display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:8px;font-family:"Space Grotesk";font-weight:700;font-size:18px;color:var(--azul)}
+.brand i{width:22px;height:22px;border-radius:7px;background:var(--azul);position:relative;display:block}
+.brand i::after{content:"";position:absolute;inset:5px 5px auto auto;width:8px;height:8px;border-radius:50%;background:#fff}
+.grow{flex:1;min-width:0}
+.vivo{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ok);font-weight:600}
+.vivo::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pul 1.6s infinite}
+@keyframes pul{50%{opacity:.3}}
+main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px;padding:14px 16px;max-width:1500px;margin:0 auto}
+@media(max-width:980px){main{grid-template-columns:1fr}}
+.kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media(max-width:1180px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:980px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:520px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:var(--sombra)}
+.kpi .n{font-family:"Space Grotesk";font-weight:700;font-size:24px}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi.alerta .n{color:var(--warn)}
+.kpi.vivo-k{border-color:#C7EBD6}
+.kpi.vivo-k .n{color:var(--ok)}
+.kpi.clic{cursor:pointer}
+.kpi.clic:hover{border-color:var(--azul-borde)}
+.btn.wa{background:#25D366;border-color:#1EBE5A;color:#fff}
+.pt.p{background:#7A4DFF}.pt.p.dormido{background:#9AA8BD}
+.punto{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dim);margin-right:4px;vertical-align:middle}
+.punto.on{background:var(--ok)}
+.sec-t{padding:10px 14px 6px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;background:var(--panel2);border-bottom:1px solid var(--line)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sombra);overflow:hidden;min-width:0}
+.tabs{display:flex;gap:4px;padding:8px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:0;background:none;padding:8px 12px;border-radius:10px;font-weight:600;color:var(--muted);white-space:nowrap}
+.tabs button.on{background:var(--azul-suave);color:var(--azul-2)}
+.tabs .c{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--line);font-size:11px;margin-left:4px;text-align:center}
+.tabs button.on .c{background:var(--azul);color:#fff}
+.buscar{padding:8px 10px;border-bottom:1px solid var(--line)}
+.lista{max-height:calc(100dvh - 250px);overflow-y:auto}
+@media(max-width:980px){.lista{max-height:none}}
+.fila{padding:12px 14px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start}
+.fila:hover{background:var(--panel2)}
+.fila.sel{background:var(--azul-suave)}
+.ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff}
+.ico.viaje{background:var(--azul)}
+.ico.paquete{background:#7A4DFF}
+.t{font-weight:600}
+.ruta-txt{font-size:12.5px;color:var(--muted);margin-top:2px}
+.ruta-txt b{color:var(--text);font-weight:500}
+.meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:600;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.badge.ok{color:var(--ok);background:#EDFAF2;border-color:#C7EBD6}
+.badge.warn{color:var(--warn);background:#FDF6EA;border-color:#F5E2C4}
+.badge.bad{color:var(--bad);background:#FDF3F2;border-color:#F6D8D7}
+.badge.azul{color:var(--azul-2);background:var(--azul-suave);border-color:var(--azul-borde)}
+.precio{font-family:"Space Grotesk";font-weight:700;font-size:17px;text-align:right}
+.acc{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
+#mapa{height:calc(100dvh - 190px);min-height:420px}
+@media(max-width:980px){#mapa{height:60dvh}}
+.vacio{padding:30px;text-align:center;color:var(--dim)}
+.sw{position:relative;width:40px;height:22px;border-radius:999px;background:var(--line2);border:0;flex:none;transition:.15s}
+.sw i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}
+.sw.on{background:var(--ok)} .sw.on i{left:21px}
+.swrow{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.mk{display:grid;place-items:center}
+.pt{width:22px;height:22px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700}
+.pt.a{background:#00875A}.pt.b{background:#DE350B}.pt.c{background:#0A5AFF;border-radius:8px;width:26px;height:26px}
+#toasts{position:fixed;right:16px;bottom:16px;z-index:2000;display:flex;flex-direction:column;gap:8px;width:min(380px,92vw)}
+.toast{background:#0D1B2E;color:#fff;border-radius:12px;padding:11px 14px;box-shadow:0 10px 28px rgba(0,0,0,.25);font-size:13.5px}
+.toast.bad{background:var(--bad)}
+.modal{position:fixed;inset:0;z-index:1500;background:rgba(0,0,0,.5);display:grid;place-items:center;padding:16px}
+.modal .box{background:var(--panel);border-radius:18px;padding:18px;width:min(720px,100%);max-height:90dvh;overflow:auto}
+.fotos{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+.fotos figure{margin:0}
+.fotos img{width:100%;border-radius:12px;border:1px solid var(--line);background:#000;aspect-ratio:3/4;object-fit:contain}
+.fotos figcaption{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* soporte: chat de cada caso */
+.ico.sop{background:#E0912A;font-size:10.5px}
+.sin{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--bad);color:#fff;font-size:11.5px;font-weight:700}
+.chat{display:flex;flex-direction:column;gap:7px;height:min(46dvh,420px);overflow-y:auto;padding:12px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;margin-top:12px}
+.msg{max-width:82%;padding:8px 11px;border-radius:14px;font-size:13.5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.usuario{align-self:flex-start;background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.soporte{align-self:flex-end;background:var(--azul);color:#fff;border-bottom-right-radius:4px}
+.msg.sistema{align-self:center;max-width:92%;background:none;color:var(--dim);font-size:12px;text-align:center;padding:2px 8px}
+.msg .h{font-size:10.5px;opacity:.72;margin-top:3px}
+.resp{display:flex;gap:8px;margin-top:10px;align-items:flex-end}
+textarea.input{resize:vertical;min-height:46px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.form2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+@media(max-width:560px){.form2{grid-template-columns:1fr}.resp{flex-direction:column;align-items:stretch}}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;margin:10px 0}
+.cab-lista{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.an-img{width:54px;height:54px;border-radius:10px;object-fit:cover;background:var(--panel2);border:1px solid var(--line)}
+.prev-img{max-width:100%;max-height:180px;border-radius:12px;border:1px solid var(--line);display:block;margin-top:8px}
+</style>
+</head>
+<body>
+
+<section id="login" class="login">
+  <form class="box" id="f-login" autocomplete="on">
+    <div class="brand" style="margin-bottom:14px"><i></i>Llevu · Admin</div>
+    <h1>Panel de administración</h1>
+    <p class="dim" style="margin:4px 0 0">Acceso restringido. Solo la cuenta administradora puede entrar.</p>
+    <div class="field"><label for="a-correo">Correo</label>
+      <input id="a-correo" class="input" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="a-clave">Contraseña (mínimo 20 caracteres)</label>
+      <input id="a-clave" class="input" type="password" autocomplete="current-password" minlength="20" required></div>
+    <button class="btn primary full" id="a-entrar" type="submit">Entrar</button>
+    <div class="err" id="a-err" role="alert"></div>
+  </form>
+</section>
+
+<section id="panel" class="hidden">
+  <header>
+    <div class="brand"><i></i>Llevu · Admin</div>
+    <span class="vivo" id="vivo">En vivo</span>
+    <div class="grow"></div>
+    <span class="dim" id="quien"></span>
+    <button class="btn sm" id="b-reparto" title="Quién recibe las solicitudes nuevas">Solicitudes: …</button>
+    <button class="btn sm" id="b-sonido" title="Sonido de nuevas solicitudes">Sonido: sí</button>
+    <button class="btn sm" id="b-salir">Salir</button>
+  </header>
+  <main>
+    <div class="kpis" id="kpis"></div>
+    <div class="panel">
+      <div class="tabs" id="tabs">
+        <button data-t="pendientes" class="on">Pendientes<span class="c" id="c-pendientes">0</span></button>
+        <button data-t="curso">En curso<span class="c" id="c-curso">0</span></button>
+        <button data-t="hoy">Hoy<span class="c" id="c-hoy">0</span></button>
+        <button data-t="conectados">Conectados<span class="c" id="c-conectados">0</span></button>
+        <button data-t="activar">Por activar<span class="c" id="c-activar">0</span></button>
+        <button data-t="nuevos">Nuevos<span class="c" id="c-nuevos">0</span></button>
+        <button data-t="usuarios">Usuarios<span class="c" id="c-usuarios">0</span></button>
+        <button data-t="conductores">Conductores<span class="c" id="c-conductores">0</span></button>
+        <button data-t="soporte">Soporte<span class="c" id="c-soporte">0</span></button>
+        <button data-t="anuncios">Anuncios<span class="c" id="c-anuncios">0</span></button>
+        <button data-t="app">Versión app</button>
+      </div>
+      <div class="buscar"><input class="input" id="q" placeholder="Buscar por nombre, correo, celular, placa o dirección" autocomplete="off"></div>
+      <div class="lista" id="lista"></div>
+    </div>
+    <div class="panel"><div id="mapa"></div></div>
+  </main>
+</section>
+
+<div id="toasts"></div>
+<div id="modal" class="modal hidden"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
+<script>
+/* ============================================================
+   Llevu · panel de administración
+   Solo entra la cuenta con perfiles.es_admin = true (la marca el script
+   crear_admin.py con la clave de servicio). Además la base lo exige en
+   cada consulta: sin es_admin, las políticas no devuelven nada ajeno.
+   ============================================================ */
+const SUPABASE_URL = 'https://budyjhsqdydmrimtriox.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1ZHlqaHNxZHlkbXJpbXRyaW94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MTM2OTAsImV4cCI6MjEwNDE4OTY5MH0.LRKkQiTwexWBLYQZ1yYhU4y5fEApI2ZRzeMvi6xlcYs';
+const CORREO_ADMIN = 'somossimbioticos@gmail.com';
+const TILES = 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_2nsz_1_2e810fa90ac9971bc0c7f6b9';
+const ACTIVOS = ['buscando', 'aceptado', 'en_camino', 'a_bordo'];
+const ESTADO = { buscando: ['warn', 'Buscando'], aceptado: ['azul', 'Asignado'], en_camino: ['azul', 'En camino'],
+  a_bordo: ['azul', 'A bordo / en ruta'], finalizado: ['ok', 'Finalizado'], cancelado: ['bad', 'Cancelado'] };
+const URG = { urgente: 'Urgente', '1h': '1 hora', '2h': '2 horas', '5h': '5 horas' };
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = n => '$' + Number(n || 0).toFixed(2);
+const hace = iso => {
+  if (!iso) return '—';
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 60) return 'ahora';
+  if (s < 3600) return `hace ${Math.floor(s / 60)} min`;
+  if (s < 86400) return `hace ${Math.floor(s / 3600)} h`;
+  return new Date(iso).toLocaleString('es-EC', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
+const gmaps = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`;
+function toast(t, tipo) {
+  const d = document.createElement('div');
+  d.className = 'toast' + (tipo === 'bad' ? ' bad' : '');
+  d.textContent = t;
+  $('#toasts').appendChild(d);
+  setTimeout(() => d.remove(), 4500);
+}
+function beep() {
+  if (localStorage.getItem('admin:sonido') === '0') return;
+  try {
+    const c = new (window.AudioContext || window.webkitAudioContext)();
+    [[880, 0], [1175, .18], [880, .36]].forEach(([f, t]) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.frequency.value = f; o.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(.001, c.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(.3, c.currentTime + t + .02);
+      g.gain.exponentialRampToValueAtTime(.001, c.currentTime + t + .16);
+      o.start(c.currentTime + t); o.stop(c.currentTime + t + .18);
+    });
+  } catch (e) {}
+}
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'ruta-admin-sesion' }
+});
+const A = { sol: [], perfiles: {}, vehiculos: {}, conductores: [], presencia: [], bio: {}, tab: 'pendientes', q: '', sel: null, vistos: null, usuariosVistos: null, subs: [],
+  yo: null, tickets: [], soporteOk: true, porResponder: null, caso: null, cerrarCaso: null,
+  anuncios: [], anunciosOk: true, version: null, versionOk: true };
+/* Ventanas de tiempo para decir "conectado": la app manda un latido cada
+   45 s (web) o cada 15-60 s (servicio del APK). */
+const CONECTADO_MS = 3 * 60000, EN_LINEA_MS = 10 * 60000, NUEVOS_DIAS = 7;
+
+/* ---------- acceso ---------- */
+async function esAdmin(user) {
+  if (!user || (user.email || '').toLowerCase() !== CORREO_ADMIN) return false;
+  const { data } = await sb.from('perfiles').select('es_admin').eq('id', user.id).maybeSingle();
+  return !!(data && data.es_admin);
+}
+$('#f-login').onsubmit = async e => {
+  e.preventDefault();
+  const correo = $('#a-correo').value.trim().toLowerCase();
+  const clave = $('#a-clave').value;
+  const err = $('#a-err'); err.textContent = '';
+  if (correo !== CORREO_ADMIN) { err.textContent = 'Esta cuenta no tiene acceso al panel.'; return; }
+  if (clave.length < 20) { err.textContent = 'La contraseña del administrador tiene al menos 20 caracteres.'; return; }
+  const b = $('#a-entrar'); b.disabled = true; b.textContent = 'Entrando...';
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
+    if (error) { err.textContent = /invalid/i.test(error.message) ? 'Correo o contraseña incorrectos.' : error.message; return; }
+    if (!await esAdmin(data.user)) { await sb.auth.signOut(); err.textContent = 'Esta cuenta no tiene permisos de administrador.'; return; }
+    $('#a-clave').value = '';
+    entrar(data.user);
+  } finally { b.disabled = false; b.textContent = 'Entrar'; }
+};
+$('#b-salir').onclick = async () => {
+  A.subs.forEach(f => f()); A.subs = [];
+  await sb.auth.signOut();
+  location.reload();
+};
+$('#b-reparto').onclick = alternarReparto;
+$('#b-sonido').onclick = () => {
+  const on = localStorage.getItem('admin:sonido') !== '0';
+  localStorage.setItem('admin:sonido', on ? '0' : '1');
+  $('#b-sonido').textContent = 'Sonido: ' + (on ? 'no' : 'sí');
+  if (!on) beep();
+};
+
+/* ---------- datos ---------- */
+async function cargarTodo() {
+  const desde = new Date(); desde.setHours(0, 0, 0, 0);
+  const [s1, s2, p, v, c, b, pr] = await Promise.all([
+    sb.from('solicitudes_detalle').select('*').in('estado', ACTIVOS).order('creado_en', { ascending: false }).limit(500),
+    sb.from('solicitudes_detalle').select('*').in('estado', ['finalizado', 'cancelado']).gte('creado_en', desde.toISOString()).order('creado_en', { ascending: false }).limit(500),
+    sb.from('perfiles').select('*').order('creado_en', { ascending: false }).limit(2000),
+    sb.from('vehiculos').select('*'),
+    sb.from('conductores_estado').select('*'),
+    sb.from('biometria').select('usuario_id,foto_path,cedula_path,ultima_verificacion_path,ultima_distancia,actualizado_en'),
+    sb.from('presencia').select('*')
+  ]);
+  const err = [s1, s2, p, v, c, b].find(r => r.error);
+  if (err) throw err.error;
+  /* presencia es de la migración v3: si aún no se corrió, el panel sigue */
+  A.presencia = pr.error ? [] : pr.data;
+  const nuevas = s1.data.filter(s => s.estado === 'buscando' && A.vistos && !A.vistos.has(s.id));
+  A.vistos = new Set(s1.data.map(s => s.id));
+  A.sol = [...s1.data, ...s2.data];
+  A.perfiles = Object.fromEntries(p.data.map(x => [x.id, x]));
+  A.vehiculos = {};
+  v.data.forEach(x => { (A.vehiculos[x.conductor_id] = A.vehiculos[x.conductor_id] || []).push(x); });
+  A.conductores = c.data;
+  A.bio = Object.fromEntries(b.data.map(x => [x.usuario_id, x]));
+  /* Aviso cuando se registra alguien nuevo, para escribirle por WhatsApp */
+  const registrados = p.data.filter(x => A.usuariosVistos && !A.usuariosVistos.has(x.id));
+  A.usuariosVistos = new Set(p.data.map(x => x.id));
+  if (registrados.length) {
+    beep();
+    registrados.forEach(x => toast(`Nuevo ${x.rol === 'conductor' ? 'conductor' : 'pasajero'}: ${x.nombre || x.correo || '—'} ${x.celular ? '· ' + x.celular : ''}`));
+  }
+  if (nuevas.length) {
+    beep();
+    nuevas.forEach(s => toast(`Nueva solicitud: ${['camioneta', 'camion'].includes(s.vehiculo) ? 'trasteo' : s.tipo === 'paquete' ? 'envío' : 'viaje'} de ${s.pasajero_nombre || '—'} · ${money(s.precio_ofrecido)}`));
+  }
+  await Promise.all([cargarSoporte(), cargarAnuncios(), cargarVersion(), cargarPines(), cargarAjustes()]);
+  pintar();
+}
+
+/* Soporte, anuncios y versión son aparte: si una tabla aún no existe
+   (migración sin correr) el resto del panel sigue funcionando. */
+async function cargarSoporte() {
+  const { data, error } = await sb.from('soporte_bandeja').select('*').order('actualizado_en', { ascending: false }).limit(300);
+  A.soporteOk = !error;
+  if (error) return;
+  A.tickets = data;
+  /* Aviso con sonido cuando un usuario escribe algo nuevo */
+  const pend = data.filter(t => +t.sin_leer_agente > 0 && t.id !== A.caso);
+  const claves = new Set(pend.map(t => t.id + ':' + t.sin_leer_agente));
+  if (A.porResponder) {
+    const nuevos = pend.filter(t => !A.porResponder.has(t.id + ':' + t.sin_leer_agente));
+    if (nuevos.length) { beep(); nuevos.forEach(t => toast(`Soporte · ${t.usuario_nombre || 'Usuario'}: ${t.ultimo_texto || t.asunto}`)); }
+  }
+  A.porResponder = claves;
+}
+/* PIN de los viajes en curso: si el pasajero no lo encuentra, soporte se lo da */
+async function cargarPines() {
+  const ids = A.sol.filter(s => s.tipo === 'viaje' && ['buscando', 'aceptado', 'en_camino'].includes(s.estado)).map(s => s.id);
+  if (!ids.length) { A.pines = {}; return; }
+  const { data, error } = await sb.from('pines_viaje').select('solicitud_id,pin').in('solicitud_id', ids);
+  A.pines = error ? {} : Object.fromEntries(data.map(x => [x.solicitud_id, x.pin]));
+}
+async function cargarAnuncios() {
+  const { data, error } = await sb.from('anuncios').select('*').order('creado_en', { ascending: false }).limit(100);
+  A.anunciosOk = !error;
+  A.anuncios = error ? [] : data;
+}
+/* Reparto de solicitudes: para todos los conductores, o solo para el
+   despachador (ingeniero.andres.santana@gmail.com), que puede enviar
+   cada una a todos desde su app. Tabla ajustes, migracion_v7.sql. */
+async function cargarAjustes() {
+  const { data, error } = await sb.from('ajustes').select('*').eq('id', 1).maybeSingle();
+  A.ajustes = error ? null : data;
+  const b = $('#b-reparto');
+  if (!A.ajustes) { b.textContent = 'Solicitudes: (falta migración v7)'; b.disabled = true; return; }
+  b.disabled = false;
+  b.textContent = A.ajustes.solicitudes_para_todos ? 'Solicitudes: todos los conductores' : 'Solicitudes: solo despachador';
+  b.classList.toggle('primary', !!A.ajustes.solicitudes_para_todos);
+}
+async function alternarReparto() {
+  if (!A.ajustes) return;
+  const nuevo = !A.ajustes.solicitudes_para_todos;
+  if (!confirm(nuevo ? '¿Mostrar las solicitudes nuevas a TODOS los conductores?'
+                     : '¿Mostrar las solicitudes solo al despachador (ingeniero.andres.santana@gmail.com)?')) return;
+  const { error } = await sb.from('ajustes').update({ solicitudes_para_todos: nuevo, actualizado_en: new Date().toISOString() }).eq('id', 1);
+  if (error) return toast(error.message, 'bad');
+  toast(nuevo ? 'Ahora todos los conductores reciben las solicitudes' : 'Ahora solo el despachador recibe las solicitudes');
+  cargarAjustes();
+}
+async function cargarVersion() {
+  const { data, error } = await sb.from('app_version').select('*').eq('id', 1).maybeSingle();
+  A.versionOk = !error;
+  A.version = error ? null : data;
+}
+let tCarga = null;
+const recargar = () => { clearTimeout(tCarga); tCarga = setTimeout(() => cargarTodo().catch(e => toast(e.message, 'bad')), 400); };
+
+function entrar(user) {
+  $('#login').classList.add('hidden');
+  $('#panel').classList.remove('hidden');
+  $('#quien').textContent = user.email;
+  A.yo = user.id;
+  $('#b-sonido').textContent = 'Sonido: ' + (localStorage.getItem('admin:sonido') === '0' ? 'no' : 'sí');
+  iniciarMapa();
+  cargarTodo().catch(e => toast(e.message, 'bad'));
+  const ch = sb.channel('admin-todo')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes' }, recargar)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'conductores_estado' }, recargar)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'presencia' }, recargar)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'perfiles' }, recargar)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'soporte_tickets' }, recargar)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'soporte_mensajes' }, recargar)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'anuncios' }, recargar)
+    .subscribe(st => { $('#vivo').style.opacity = st === 'SUBSCRIBED' ? 1 : .4; });
+  const t = setInterval(recargar, 20000);
+  const t2 = setInterval(pintarLista, 30000);   // refresca los "hace X min" y los plazos
+  A.subs.push(() => sb.removeChannel(ch), () => clearInterval(t), () => clearInterval(t2));
+}
+
+/* ---------- vista ---------- */
+const enLinea = c => c.en_linea && (Date.now() - new Date(c.actualizado_en)) < EN_LINEA_MS;
+const conectado = x => x && (Date.now() - new Date(x.visto_en)) < CONECTADO_MS;
+const enUso = x => conectado(x) && x.app_abierta;
+const presDe = id => A.presencia.find(x => x.usuario_id === id);
+const esNuevo = p => p.creado_en && (Date.now() - new Date(p.creado_en)) < NUEVOS_DIAS * 86400000;
+const durTxt = ms => { const t = Math.abs(ms), h = Math.floor(t / 3600000), m = Math.floor(t % 3600000 / 60000); return h ? `${h} h ${m} min` : `${m} min`; };
+const plazo = s => {
+  if (s.tipo !== 'paquete' || !s.aceptado_en || !['aceptado', 'en_camino', 'a_bordo'].includes(s.estado)) return '';
+  const ms = new Date(s.entrega_limite || (new Date(s.aceptado_en).getTime() + 3600000)) - Date.now();
+  return ms < 0 ? `<span class="badge bad">Atrasado ${durTxt(ms)}</span>` : `<span class="badge ${ms <= 15 * 60000 ? 'warn' : ''}">Entregar en ${durTxt(ms)}</span>`;
+};
+/* WhatsApp: el celular se guarda como 09XXXXXXXX; wa.me lo quiere con el
+   código de Ecuador y sin el 0 (5939XXXXXXXX). */
+function waLink(p, texto) {
+  let n = String(p.celular || '').replace(/\D/g, '');
+  if (!n) return '';
+  if (n.startsWith('0')) n = '593' + n.slice(1);
+  else if (n.length === 9) n = '593' + n;
+  const msg = texto || `Hola ${(p.nombre || '').split(' ')[0]}, te saludamos de Llevu. `;
+  return `https://wa.me/${n}?text=${encodeURIComponent(msg)}`;
+}
+function mensajeBienvenida(p) {
+  const nombre = (p.nombre || '').split(' ')[0] || '';
+  const falta = 'Para activar tu cuenta solo falta que te tomes la foto del rostro desde la app (Perfil → Identidad).';
+  if (p.rol === 'conductor') return `Hola ${nombre}, te saludamos de Llevu. Vimos que te registraste como conductor. ` +
+    (!p.rostro_registrado ? falta : p.cuenta_activa ? 'Tu cuenta ya está activa; estamos revisando tu vehículo para habilitarte.' : 'Ya tenemos la foto de tu rostro; estamos revisando tus datos y tu vehículo para activarte.');
+  return `Hola ${nombre}, te saludamos de Llevu. Gracias por registrarte. ` +
+    (!p.rostro_registrado ? falta : p.cuenta_activa ? 'Tu cuenta ya está activa, ya puedes pedir viajes y envíos.' : 'Ya tenemos la foto de tu rostro; en breve activamos tu cuenta.');
+}
+/* Cuentas que esperan que el admin las active: primero las que ya tienen
+   su foto del rostro (listas para revisar), después las que aún no. */
+const porActivar = () => Object.values(A.perfiles).filter(p => !p.cuenta_activa)
+  .sort((a, b) => (b.rostro_registrado - a.rostro_registrado) || (new Date(b.creado_en) - new Date(a.creado_en)));
+const vehTxt = v => `${v.tipo === 'moto' ? 'Moto' : 'Carro'} ${v.placa || ''} ${[v.marca, v.modelo, v.color].filter(Boolean).join(' ')}`.trim();
+const paradasDe = s => (Array.isArray(s.paradas) ? s.paradas : []).filter(q => q && q.lat != null);
+const tkAbierto = t => t.estado === 'abierto' || t.estado === 'en_proceso';
+const porAtender = () => A.tickets.filter(t => +t.sin_leer_agente > 0 || t.estado === 'abierto');
+const vigente = a => a.activo && new Date(a.desde) <= Date.now() && (!a.hasta || new Date(a.hasta) > Date.now());
+function listaTab(t) {
+  const hoy = new Date().toDateString();
+  if (t === 'soporte') return [...A.tickets].sort((a, b) =>
+    ((+b.sin_leer_agente > 0) - (+a.sin_leer_agente > 0)) || (tkAbierto(b) - tkAbierto(a)) || (new Date(b.actualizado_en) - new Date(a.actualizado_en)));
+  if (t === 'anuncios') return A.anuncios;
+  if (t === 'app') return [];
+  if (t === 'pendientes') return A.sol.filter(s => s.estado === 'buscando');
+  if (t === 'curso') return A.sol.filter(s => ['aceptado', 'en_camino', 'a_bordo'].includes(s.estado));
+  if (t === 'hoy') return A.sol.filter(s => ['finalizado', 'cancelado'].includes(s.estado) && new Date(s.creado_en).toDateString() === hoy);
+  if (t === 'usuarios') return Object.values(A.perfiles);
+  if (t === 'nuevos') return Object.values(A.perfiles).filter(esNuevo);
+  if (t === 'activar') return porActivar();
+  if (t === 'conectados') {
+    /* conductores en línea primero, después quien tiene la app abierta y al final el resto conectado */
+    const ids = new Set([...A.conductores.filter(enLinea).map(c => c.conductor_id), ...A.presencia.filter(conectado).map(x => x.usuario_id)]);
+    const peso = p => (A.conductores.some(c => c.conductor_id === p.id && enLinea(c)) ? 0 : enUso(presDe(p.id)) ? 1 : 2);
+    return [...ids].map(id => A.perfiles[id]).filter(Boolean).sort((a, b) => peso(a) - peso(b));
+  }
+  return Object.values(A.perfiles).filter(p => p.rol === 'conductor' || A.vehiculos[p.id]);
+}
+function coincide(x) {
+  const q = A.q.trim().toLowerCase();
+  if (!q) return true;
+  const p = A.perfiles;
+  if (x.asunto !== undefined) return [x.asunto, x.usuario_nombre, x.usuario_correo, x.usuario_tel, x.ultimo_texto]
+    .some(c => String(c || '').toLowerCase().includes(q));
+  if (x.titulo !== undefined) return [x.titulo, x.texto].some(c => String(c || '').toLowerCase().includes(q));
+  const campos = x.tipo
+    ? [x.pasajero_nombre, x.conductor_nombre, x.placa, x.origen_texto, x.destino_texto, x.destinatario, (p[x.pasajero_id] || {}).celular, (p[x.conductor_id] || {}).celular]
+    : [x.nombre, x.correo, x.celular, x.cedula, ...(A.vehiculos[x.id] || []).map(v => v.placa)];
+  return campos.some(c => String(c || '').toLowerCase().includes(q));
+}
+function pintar() {
+  const hoy = listaTab('hoy');
+  const fin = hoy.filter(s => s.estado === 'finalizado');
+  const conPas = A.presencia.filter(x => conectado(x) && x.modo !== 'conductor');
+  const kpis = [
+    ['Conductores en línea', A.conductores.filter(enLinea).length, 'vivo-k', 'conectados'],
+    ['Pasajeros conectados', conPas.length, 'vivo-k', 'conectados'],
+    ['En uso de la app ahora', A.presencia.filter(enUso).length, 'vivo-k', 'conectados'],
+    ['Casos de soporte por atender', porAtender().length, porAtender().length ? 'alerta' : '', 'soporte'],
+    ['Cuentas por activar', porActivar().filter(p => p.rostro_registrado).length, porActivar().some(p => p.rostro_registrado) ? 'alerta' : '', 'activar'],
+    ['Usuarios nuevos (7 días)', listaTab('nuevos').length, listaTab('nuevos').length ? 'alerta' : '', 'nuevos'],
+    ['Pendientes', listaTab('pendientes').length, listaTab('pendientes').length > 0 ? 'alerta' : '', 'pendientes'],
+    ['En curso', listaTab('curso').length, '', 'curso'],
+    ['Finalizados hoy', fin.length, '', 'hoy'],
+    ['Cancelados hoy', hoy.length - fin.length, '', 'hoy'],
+    ['Movido hoy', money(fin.reduce((a, s) => a + (+s.precio_final || +s.precio_ofrecido || 0), 0)), '', 'hoy'],
+    ['Usuarios registrados', Object.keys(A.perfiles).length, '', 'usuarios']
+  ];
+  $('#kpis').innerHTML = kpis.map(([l, n, cls, t]) => `<div class="kpi clic ${cls}" data-ir="${t}"><div class="n num">${n}</div><div class="l">${l}</div></div>`).join('');
+  ['pendientes', 'curso', 'hoy', 'conectados', 'activar', 'nuevos', 'usuarios', 'conductores'].forEach(t => { $('#c-' + t).textContent = listaTab(t).length; });
+  $('#c-soporte').textContent = porAtender().length;
+  $('#c-anuncios').textContent = A.anuncios.filter(vigente).length;
+  pintarLista();
+  pintarMapa();
+}
+
+function filaSolicitud(s) {
+  const p = A.perfiles[s.pasajero_id] || {}, c = A.perfiles[s.conductor_id] || {};
+  const est = ESTADO[s.estado] || ['', s.estado];
+  const env = s.tipo === 'paquete';
+  return `<div class="fila ${A.sel === s.id ? 'sel' : ''}" data-s="${esc(s.id)}">
+    <div class="ico ${esc(s.tipo)}">${env ? 'ENV' : 'VIA'}</div>
+    <div style="min-width:0">
+      <div class="t">${env ? (s.vehiculo === 'moto' ? 'Envío en moto' : 'Envío') : 'Viaje'} · ${esc(s.pasajero_nombre || '—')} <span class="dim">${esc(p.celular || '')}</span></div>
+      <div class="ruta-txt"><b>Desde:</b> <a href="${gmaps(s.origen_lat, s.origen_lng)}" target="_blank" rel="noopener">${esc(s.origen_texto || 'Ver en mapa')}</a></div>
+      ${paradasDe(s).map((q, i) => `<div class="ruta-txt"><b>Destino ${i + 1}:</b> <a href="${gmaps(q.lat, q.lng)}" target="_blank" rel="noopener">${esc(q.texto || 'Ver en mapa')}</a></div>`).join('')}
+      <div class="ruta-txt"><b>${paradasDe(s).length ? 'Destino final' : 'Hasta'}:</b> <a href="${gmaps(s.destino_lat, s.destino_lng)}" target="_blank" rel="noopener">${esc(s.destino_texto || 'Ver en mapa')}</a>
+        ${env && s.destinatario ? ` · recibe ${esc(s.destinatario)} ${esc(s.destinatario_tel || '')}` : ''}</div>
+      <div class="meta">
+        <span class="badge ${est[0]}">${est[1]}</span>
+        ${env ? `<span class="badge">${esc(URG[s.urgencia] || 'Urgente')}</span>` : `<span class="badge">${s.pasajeros || 1} pasajero(s)</span>`}
+        ${s.conductor_id ? `<span class="badge azul">${esc(s.conductor_nombre || '')} ${esc(c.celular || '')} ${s.placa ? '· ' + esc(s.placa) : ''}</span>` : ''}
+        ${plazo(s)}
+        ${A.pines && A.pines[s.id] ? `<span class="badge" title="PIN que el pasajero le da al conductor">PIN ${esc(A.pines[s.id])}</span>` : ''}
+        <span class="badge">${hace(s.creado_en)}</span>
+        ${env && s.descripcion ? `<span class="badge">${esc(s.descripcion)}</span>` : ''}
+        ${s.motivo_cancelacion ? `<span class="badge bad">${esc(s.motivo_cancelacion)}</span>` : ''}
+      </div>
+    </div>
+    <div>
+      <div class="precio">${money(s.precio_final || s.precio_ofrecido)}</div>
+      ${ACTIVOS.includes(s.estado) ? `<div class="acc"><button class="btn sm danger" data-cancelar="${esc(s.id)}">Cancelar</button></div>` : ''}
+    </div>
+  </div>`;
+}
+function filaUsuario(p) {
+  const vs = A.vehiculos[p.id] || [];
+  const b = A.bio[p.id];
+  const cond = A.conductores.find(c => c.conductor_id === p.id);
+  const pres = presDe(p.id);
+  const ubic = (cond && enLinea(cond) && cond.lat != null) ? cond : (pres && pres.lat != null ? pres : null);
+  const verHoy = p.verificado_en && new Date(p.verificado_en).toDateString() === new Date().toDateString();
+  return `<div class="fila" data-u="${esc(p.id)}">
+    <div class="ico viaje" style="background:${p.rol === 'conductor' ? '#00875A' : 'var(--azul)'}">${esc((p.nombre || '?').split(' ').map(x => x[0]).slice(0, 2).join('').toUpperCase())}</div>
+    <div style="min-width:0">
+      <div class="t">${esc(p.nombre)} <span class="dim">${p.rol === 'conductor' ? 'Conductor' : 'Pasajero'}${p.es_admin ? ' · Admin' : ''}</span></div>
+      <div class="ruta-txt">${esc(p.correo || '')} · ${esc(p.celular || 'sin celular')} · CI ${esc(p.cedula || '—')}</div>
+      <div class="meta">
+        <span class="badge ${p.rostro_registrado ? 'ok' : 'warn'}">${p.rostro_registrado ? 'Rostro registrado' : 'Sin foto del rostro'}</span>
+        <span class="badge ${p.cuenta_activa ? 'ok' : 'warn'}">${p.cuenta_activa ? 'Cuenta activa' : 'Cuenta por activar'}</span>
+        <span class="badge ${verHoy ? 'ok' : ''}">${verHoy ? 'Verificado hoy' : 'Sin verificar hoy'}</span>
+        <span class="badge">${p.viajes_totales || 0} servicios · ${p.calificacion || '5.0'}★</span>
+        ${cond ? `<span class="badge ${enLinea(cond) ? 'ok' : ''}">${enLinea(cond) ? 'En línea' : 'Fuera de línea'} · ${hace(cond.actualizado_en)}</span>` : ''}
+        ${pres ? `<span class="badge ${enUso(pres) ? 'ok' : conectado(pres) ? 'azul' : ''}"><span class="punto ${conectado(pres) ? 'on' : ''}"></span>${enUso(pres) ? 'Usando la app' : conectado(pres) ? 'Conectado (app en segundo plano)' : 'Visto ' + hace(pres.visto_en)} · ${pres.modo === 'conductor' ? 'modo conductor' : 'modo pasajero'}${pres.plataforma ? ' · ' + esc(pres.plataforma) : ''}</span>` : '<span class="badge">Sin conexión reciente</span>'}
+        ${esNuevo(p) ? `<span class="badge warn">Nuevo · ${hace(p.creado_en)}</span>` : ''}
+        ${p.terminos_version ? `<span class="badge">Términos ${esc(p.terminos_version)}</span>` : '<span class="badge warn">Sin aceptar términos</span>'}
+      </div>
+      <div class="meta" style="margin-top:8px;gap:14px">
+        <label class="swrow"><button class="sw ${p.cuenta_activa ? 'on' : ''}" data-activa="${esc(p.id)}" aria-label="Cuenta activa"><i></i></button>Cuenta activa</label>
+        ${p.rol === 'conductor' || vs.length ? `<label class="swrow"><button class="sw ${p.conductor_habilitado ? 'on' : ''}" data-hab="${esc(p.id)}" aria-label="Conductor habilitado"><i></i></button>Conductor habilitado</label>` : ''}
+        ${vs.map(v => `<label class="swrow"><button class="sw ${v.aprobado ? 'on' : ''}" data-veh="${esc(v.id)}" aria-label="Vehículo aprobado"><i></i></button>${esc(vehTxt(v))}</label>`).join('')}
+      </div>
+    </div>
+    <div class="acc" style="flex-direction:column;align-items:flex-end">
+      ${p.celular ? `<a class="btn sm wa" href="${esc(waLink(p, esNuevo(p) ? mensajeBienvenida(p) : ''))}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+      ${p.correo ? `<a class="btn sm" href="mailto:${esc(p.correo)}?subject=${encodeURIComponent('Tu cuenta en Llevu')}">Correo</a>` : ''}
+      ${ubic ? `<button class="btn sm" data-ubicar="${esc(p.id)}">Ver en mapa</button>` : ''}
+      ${b ? `<button class="btn sm" data-fotos="${esc(p.id)}">Ver fotos</button>` : '<span class="dim">Sin fotos</span>'}
+    </div>
+  </div>`;
+}
+function pintarLista() {
+  if (A.tab === 'soporte') return pintarSoporte();
+  if (A.tab === 'anuncios') return pintarAnuncios();
+  if (A.tab === 'app') return pintarVersion();
+  const l = listaTab(A.tab).filter(coincide);
+  const esSol = ['pendientes', 'curso', 'hoy'].includes(A.tab);
+  if (!l.length) { $('#lista').innerHTML = `<div class="vacio">${A.q ? 'Nada coincide con la búsqueda.' : 'No hay nada aquí por ahora.'}</div>`; return; }
+  if (A.tab === 'conectados') {
+    const cond = l.filter(p => A.conductores.some(c => c.conductor_id === p.id && enLinea(c)));
+    const resto = l.filter(p => !cond.includes(p));
+    const pas = resto.filter(p => (presDe(p.id) || {}).modo !== 'conductor');
+    const otros = resto.filter(p => !pas.includes(p));
+    $('#lista').innerHTML =
+      (cond.length ? `<div class="sec-t">Conductores en línea (${cond.length})</div>` + cond.map(filaUsuario).join('') : '') +
+      (pas.length ? `<div class="sec-t">Pasajeros conectados (${pas.length})</div>` + pas.map(filaUsuario).join('') : '') +
+      (otros.length ? `<div class="sec-t">Conductores con la app abierta, fuera de línea (${otros.length})</div>` + otros.map(filaUsuario).join('') : '');
+    return;
+  }
+  $('#lista').innerHTML = l.map(esSol ? filaSolicitud : filaUsuario).join('');
+}
+$('#kpis').onclick = e => {
+  const k = e.target.closest('[data-ir]'); if (!k) return;
+  const b = $(`#tabs button[data-t="${k.dataset.ir}"]`); if (b) b.click();
+};
+
+$('#tabs').onclick = e => {
+  const b = e.target.closest('button[data-t]'); if (!b) return;
+  A.tab = b.dataset.t; A.sel = null;
+  $$('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  pintarLista(); pintarMapa();
+};
+$('#q').oninput = e => { A.q = e.target.value; pintarLista(); };
+$('#lista').onclick = async e => {
+  const t = e.target;
+  const can = t.closest('[data-cancelar]');
+  if (can) {
+    const s = A.sol.find(x => x.id === can.dataset.cancelar);
+    const motivo = prompt(`Cancelar el ${['camioneta', 'camion'].includes(s.vehiculo) ? 'trasteo' : s.tipo === 'paquete' ? 'envío' : 'viaje'} de ${s.pasajero_nombre}.\nEscribe el motivo (lo verán el pasajero y el conductor):`, 'Cancelado por administración');
+    if (!motivo) return;
+    const { error } = await sb.from('solicitudes').update({ estado: 'cancelado', motivo_cancelacion: motivo.slice(0, 200) }).eq('id', s.id);
+    if (error) return toast(error.message, 'bad');
+    toast('Solicitud cancelada'); return recargar();
+  }
+  const sw = t.closest('.sw');
+  if (sw && !sw.dataset.anActivo) {
+    const on = !sw.classList.contains('on');
+    let r;
+    if (sw.dataset.activa) r = await sb.from('perfiles').update({ cuenta_activa: on }).eq('id', sw.dataset.activa).select('cuenta_activa').single();
+    if (sw.dataset.hab) r = await sb.from('perfiles').update({ conductor_habilitado: on }).eq('id', sw.dataset.hab).select('conductor_habilitado').single();
+    if (sw.dataset.veh) r = await sb.from('vehiculos').update({ aprobado: on, activo: true }).eq('id', sw.dataset.veh).select('aprobado').single();
+    if (r && r.error) return toast(r.error.message, 'bad');
+    const guardado = r && r.data && Object.values(r.data)[0];
+    if (guardado !== on) return toast('La base no aceptó el cambio (¿aplicaste migracion_v2.sql?)', 'bad');
+    toast('Guardado'); return recargar();
+  }
+  const tk = t.closest('[data-tk]');
+  if (tk && !t.closest('a')) return abrirCaso(tk.dataset.tk);
+  if (t.closest('#an-nuevo')) return editarAnuncio(null);
+  const ae = t.closest('[data-an-editar]');
+  if (ae) return editarAnuncio(A.anuncios.find(a => a.id === ae.dataset.anEditar));
+  const ab = t.closest('[data-an-borrar]');
+  if (ab) {
+    const a = A.anuncios.find(x => x.id === ab.dataset.anBorrar);
+    if (!a || !confirm(`¿Borrar el anuncio "${a.titulo}"? Ya no se mostrará a nadie.`)) return;
+    const { error } = await sb.from('anuncios').delete().eq('id', a.id);
+    if (error) return toast(error.message, 'bad');
+    toast('Anuncio borrado'); return recargar();
+  }
+  const aa = t.closest('[data-an-activo]');
+  if (aa) {
+    const a = A.anuncios.find(x => x.id === aa.dataset.anActivo);
+    const { error } = await sb.from('anuncios').update({ activo: !a.activo }).eq('id', a.id);
+    if (error) return toast(error.message, 'bad');
+    toast(a.activo ? 'Anuncio pausado' : 'Anuncio activado'); return recargar();
+  }
+  if (t.closest('#ver-editar')) return editarVersion();
+  const f = t.closest('[data-fotos]');
+  if (f) return verFotos(f.dataset.fotos);
+  const u = t.closest('[data-ubicar]');
+  if (u) {
+    const id = u.dataset.ubicar, c = A.conductores.find(x => x.conductor_id === id && enLinea(x)), pr = presDe(id);
+    const q = (c && c.lat != null) ? c : pr;
+    if (q && mapa) { mapa.setView([q.lat, q.lng], 16); const m = A.marcas[id]; if (m) m.openTooltip(); }
+    return;
+  }
+  const fila = t.closest('[data-s]');
+  if (fila && !t.closest('a')) { A.sel = fila.dataset.s; pintarLista(); pintarMapa(true); }
+};
+
+async function verFotos(uid) {
+  const b = A.bio[uid], p = A.perfiles[uid];
+  const rutas = [[b.foto_path, 'Rostro del registro'], [b.cedula_path, 'Cédula (frontal)'], [b.ultima_verificacion_path, 'Última verificación']].filter(r => r[0]);
+  const { data, error } = await sb.storage.from('identidad').createSignedUrls(rutas.map(r => r[0]), 300);
+  if (error) return toast(error.message, 'bad');
+  const m = $('#modal');
+  m.innerHTML = `<div class="box">
+    <div style="display:flex;align-items:center;gap:10px"><h2 class="grow">${esc(p.nombre)}</h2><button class="btn sm" id="m-x">Cerrar</button></div>
+    <div class="dim">CI ${esc(p.cedula || '—')} · ${esc(p.correo || '')} · última comparación: ${b.ultima_distancia != null ? (+b.ultima_distancia).toFixed(3) + ' (0 = idéntico, más de 0.55 = no coincide)' : '—'}</div>
+    <div class="fotos">${data.map((d, i) => `<figure><img src="${esc(d.signedUrl)}" alt="${esc(rutas[i][1])}"><figcaption>${esc(rutas[i][1])}</figcaption></figure>`).join('')}</div>
+  </div>`;
+  abrirModal();
+}
+
+/* ---------- ventana (modal) ---------- */
+function abrirModal() {
+  const m = $('#modal');
+  m.classList.remove('hidden');
+  m.onclick = e => { if (e.target === m || e.target.id === 'm-x') cerrarModal(); };
+}
+function cerrarModal() {
+  if (A.cerrarCaso) { A.cerrarCaso(); A.cerrarCaso = null; }
+  const m = $('#modal');
+  m.classList.add('hidden'); m.innerHTML = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#modal').classList.contains('hidden')) cerrarModal(); });
+
+/* ============================================================
+   Soporte: casos que abren pasajeros y conductores desde la app
+   ("Ayuda y soporte"). El admin responde aquí y el usuario lo ve en
+   el chat del caso, con aviso en el teléfono.
+   ============================================================ */
+const CATS = { viaje: 'Viaje o envío', pago: 'Cobros y precios', cuenta: 'Cuenta', vehiculo: 'Vehículo', seguridad: 'Seguridad', otro: 'Otro' };
+const ESTADOS_TK = { abierto: ['warn', 'Abierto'], en_proceso: ['azul', 'En proceso'], resuelto: ['ok', 'Resuelto'], cerrado: ['', 'Cerrado'] };
+const RAPIDAS = [
+  'Hola, ya estoy revisando tu caso. Te escribo en unos minutos.',
+  '¿Me confirmas la fecha, la hora y el destino del servicio?',
+  '¿Me confirmas la placa del vehículo?',
+  'Tu cuenta ya quedó activa. ¡Gracias por tu paciencia!',
+  'Listo, quedó resuelto. ¡Gracias por avisarnos!'
+];
+const horaDe = iso => new Date(iso).toLocaleString('es-EC', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+function filaTicket(t) {
+  const est = ESTADOS_TK[t.estado] || ESTADOS_TK.abierto;
+  const sin = +t.sin_leer_agente || 0;
+  return `<div class="fila" data-tk="${esc(t.id)}" style="cursor:pointer">
+    <div class="ico sop">${esc((CATS[t.categoria] || 'Otro').slice(0, 3).toUpperCase())}</div>
+    <div style="min-width:0">
+      <div class="t">${esc(t.asunto)}</div>
+      <div class="ruta-txt"><b>${esc(t.usuario_nombre || '—')}</b> · ${t.rol === 'conductor' ? 'Conductor' : 'Pasajero'}${t.usuario_tel ? ' · ' + esc(t.usuario_tel) : ''}${t.usuario_correo ? ' · ' + esc(t.usuario_correo) : ''}</div>
+      <div class="ruta-txt" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.ultimo_texto || 'Sin mensajes')}</div>
+      <div class="meta"><span class="badge ${est[0]}">${est[1]}</span><span class="badge">${esc(CATS[t.categoria] || 'Otro')}</span><span class="badge">${hace(t.actualizado_en)}</span></div>
+    </div>
+    <div style="text-align:right">${sin ? `<span class="sin" title="Mensajes sin leer">${sin}</span>` : ''}
+      <div class="acc"><button class="btn sm ${sin || t.estado === 'abierto' ? 'primary' : ''}">Responder</button></div></div>
+  </div>`;
+}
+function pintarSoporte() {
+  if (!A.soporteOk) { $('#lista').innerHTML = '<div class="vacio">No se pudo leer la bandeja de soporte. Revisa que la cuenta admin tenga es_soporte = true.</div>'; return; }
+  const l = listaTab('soporte').filter(coincide);
+  if (!l.length) { $('#lista').innerHTML = `<div class="vacio">${A.q ? 'Nada coincide con la búsqueda.' : 'No hay casos de soporte todavía.'}</div>`; return; }
+  const pend = l.filter(t => +t.sin_leer_agente > 0);
+  const abiertos = l.filter(t => !pend.includes(t) && tkAbierto(t));
+  const resto = l.filter(t => !pend.includes(t) && !abiertos.includes(t));
+  $('#lista').innerHTML =
+    (pend.length ? `<div class="sec-t">Por responder (${pend.length})</div>` + pend.map(filaTicket).join('') : '') +
+    (abiertos.length ? `<div class="sec-t">Abiertos y en proceso (${abiertos.length})</div>` + abiertos.map(filaTicket).join('') : '') +
+    (resto.length ? `<div class="sec-t">Resueltos y cerrados (${resto.length})</div>` + resto.map(filaTicket).join('') : '');
+}
+
+async function abrirCaso(id) {
+  const t = A.tickets.find(x => x.id === id);
+  if (!t) return;
+  if (A.cerrarCaso) { A.cerrarCaso(); A.cerrarCaso = null; }
+  A.caso = id;
+  const nombre = (t.usuario_nombre || '').split(' ')[0];
+  const wa = t.usuario_tel ? waLink({ celular: t.usuario_tel, nombre: t.usuario_nombre }, `Hola ${nombre}, te escribimos de Llevu por tu caso "${t.asunto}". `) : '';
+  const m = $('#modal');
+  m.innerHTML = `<div class="box" role="dialog" aria-modal="true" aria-labelledby="cs-t">
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <div class="grow"><h2 id="cs-t">${esc(t.asunto)}</h2>
+        <div class="dim">${esc(CATS[t.categoria] || 'Otro')} · abierto ${horaDe(t.creado_en)} · <span id="cs-estado"></span></div></div>
+      <button class="btn sm" id="m-x">Cerrar</button></div>
+    <div class="meta" style="margin-top:10px;align-items:center">
+      <span class="badge azul">${esc(t.usuario_nombre || '—')} · ${t.rol === 'conductor' ? 'Conductor' : 'Pasajero'}</span>
+      ${wa ? `<a class="btn sm wa" href="${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a><a class="btn sm" href="tel:${esc(t.usuario_tel)}">Llamar ${esc(t.usuario_tel)}</a>` : ''}
+      ${t.usuario_correo ? `<a class="btn sm" href="mailto:${esc(t.usuario_correo)}?subject=${encodeURIComponent('Tu caso en Llevu: ' + t.asunto)}">Correo</a>` : ''}
+    </div>
+    <div id="cs-sol"></div>
+    <div class="chat" id="cs-chat"><div class="dim">Cargando la conversación...</div></div>
+    <div class="chips">${RAPIDAS.map(x => `<button class="btn sm" data-rap="${esc(x)}">${esc(x.length > 42 ? x.slice(0, 40) + '…' : x)}</button>`).join('')}</div>
+    <div class="resp"><textarea class="input grow" id="cs-txt" rows="2" maxlength="2000" placeholder="Escribe tu respuesta. Enter envía, Shift+Enter hace una línea nueva"></textarea>
+      <button class="btn primary" id="cs-ok">Enviar</button></div>
+    <div class="acc" style="justify-content:flex-start;margin-top:12px">
+      <button class="btn sm" data-est="en_proceso">En proceso</button>
+      <button class="btn sm" data-est="resuelto">Marcar resuelto</button>
+      <button class="btn sm" data-est="cerrado">Cerrar caso</button>
+      <button class="btn sm" data-est="abierto">Reabrir</button>
+    </div>
+  </div>`;
+  abrirModal();
+  const pintarEstado = () => {
+    const x = A.tickets.find(y => y.id === id) || t;
+    const e = ESTADOS_TK[x.estado] || ESTADOS_TK.abierto;
+    const el = $('#cs-estado'); if (el) el.innerHTML = `<span class="badge ${e[0]}">${e[1]}</span>`;
+  };
+  pintarEstado();
+
+  /* Servicio relacionado, si el caso se abrió desde un viaje o envío */
+  if (t.solicitud_id) {
+    let s = A.sol.find(x => x.id === t.solicitud_id);
+    if (!s) { const r = await sb.from('solicitudes_detalle').select('*').eq('id', t.solicitud_id).maybeSingle(); s = r.data; }
+    const el = $('#cs-sol');
+    if (el && s) el.innerHTML = `<div class="ruta-txt" style="margin-top:10px"><b>Servicio relacionado:</b> ${s.tipo === 'paquete' ? 'envío' : 'viaje'} del ${horaDe(s.creado_en)} ·
+      ${esc(s.origen_texto || '')} → ${esc(s.destino_texto || '')} · ${money(s.precio_final || s.precio_ofrecido)} · ${esc((ESTADO[s.estado] || [])[1] || s.estado)}
+      ${s.conductor_nombre ? ' · conductor ' + esc(s.conductor_nombre) + (s.placa ? ' (' + esc(s.placa) + ')' : '') : ''}</div>`;
+  }
+
+  let primera = true;
+  const cargar = async () => {
+    const { data, error } = await sb.from('soporte_mensajes').select('*').eq('ticket_id', id).order('creado_en');
+    if (error || A.caso !== id) return;
+    const c = $('#cs-chat'); if (!c) return;
+    const abajo = primera || c.scrollHeight - c.scrollTop - c.clientHeight < 80;
+    c.innerHTML = data.length ? data.map(x => `<div class="msg ${esc(x.autor)}">${esc(x.texto)}<div class="h">${
+      x.autor === 'sistema' ? 'Mensaje automático · ' : ''}${horaDe(x.creado_en)}${x.autor === 'soporte' ? (x.leido ? ' · leído' : ' · enviado') : ''}</div></div>`).join('')
+      : '<div class="dim">Sin mensajes</div>';
+    if (abajo) c.scrollTop = c.scrollHeight;
+    primera = false;
+    /* Lo que escribió el usuario queda leído al abrir el caso */
+    if (data.some(x => x.autor === 'usuario' && !x.leido)) {
+      await sb.from('soporte_mensajes').update({ leido: true }).eq('ticket_id', id).eq('autor', 'usuario').eq('leido', false);
+      recargar();
+    }
+  };
+  const ch = sb.channel('caso-' + id)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'soporte_mensajes', filter: 'ticket_id=eq.' + id }, cargar)
+    .subscribe();
+  const tt = setInterval(() => { cargar(); pintarEstado(); }, 8000);
+  A.cerrarCaso = () => { sb.removeChannel(ch); clearInterval(tt); A.caso = null; };
+  cargar();
+
+  const enviar = async texto => {
+    texto = (texto || '').trim();
+    if (!texto) return;
+    const b = $('#cs-ok'); if (b) b.disabled = true;
+    const { error } = await sb.from('soporte_mensajes').insert({ ticket_id: id, emisor_id: A.yo, texto: texto.slice(0, 2000) });
+    if (b) b.disabled = false;
+    if (error) { toast(error.message, 'bad'); return false; }
+    cargar(); recargar();
+    return true;
+  };
+  const caja = $('#cs-txt');
+  $('#cs-ok').onclick = async () => { if (await enviar(caja.value)) caja.value = ''; caja.focus(); };
+  caja.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#cs-ok').click(); } };
+  $$('#modal [data-rap]').forEach(b => b.onclick = () => { caja.value = b.dataset.rap; caja.focus(); });
+  $$('#modal [data-est]').forEach(b => b.onclick = async () => {
+    const { error } = await sb.from('soporte_tickets').update({ estado: b.dataset.est }).eq('id', id);
+    if (error) return toast(error.message, 'bad');
+    const x = A.tickets.find(y => y.id === id); if (x) x.estado = b.dataset.est;
+    pintarEstado(); toast('Caso: ' + ESTADOS_TK[b.dataset.est][1]); recargar();
+  });
+  setTimeout(() => caja.focus(), 50);
+}
+
+/* ============================================================
+   Anuncios: ventana que la app le muestra al usuario al abrirla
+   ============================================================ */
+const AUDIENCIA = { todos: 'Todos', pasajero: 'Pasajeros', conductor: 'Conductores' };
+const FRECUENCIA = { una_vez: 'Una sola vez', cada_dia: 'Una vez al día' };
+const FALTA_V5 = '<div class="vacio">Falta aplicar <b>migracion_v5.sql</b> en Supabase (SQL Editor) para usar esta sección.</div>';
+function filaAnuncio(a) {
+  const est = !a.activo ? ['', 'Pausado'] : vigente(a) ? ['ok', 'Publicado'] : new Date(a.desde) > Date.now() ? ['azul', 'Programado'] : ['warn', 'Vencido'];
+  return `<div class="fila">
+    ${a.imagen_url ? `<img class="an-img" src="${esc(a.imagen_url)}" alt="">` : '<div class="ico" style="background:#7A4DFF">ANU</div>'}
+    <div style="min-width:0">
+      <div class="t">${esc(a.titulo)}</div>
+      <div class="ruta-txt" style="white-space:pre-line;max-height:3.2em;overflow:hidden">${esc(a.texto || '')}</div>
+      <div class="meta">
+        <span class="badge ${est[0]}">${est[1]}</span>
+        <span class="badge">${AUDIENCIA[a.audiencia] || a.audiencia}</span>
+        <span class="badge">${FRECUENCIA[a.frecuencia] || a.frecuencia}</span>
+        <span class="badge">Desde ${horaDe(a.desde)}${a.hasta ? ' hasta ' + horaDe(a.hasta) : ''}</span>
+        ${a.boton_url ? `<span class="badge">Botón: ${esc(a.boton_texto || 'Ver más')}</span>` : ''}
+      </div>
+    </div>
+    <div class="acc" style="flex-direction:column;align-items:flex-end">
+      <label class="swrow"><button class="sw ${a.activo ? 'on' : ''}" data-an-activo="${esc(a.id)}" aria-label="Activo"><i></i></button>Activo</label>
+      <button class="btn sm" data-an-editar="${esc(a.id)}">Editar</button>
+      <button class="btn sm danger" data-an-borrar="${esc(a.id)}">Borrar</button>
+    </div>
+  </div>`;
+}
+function pintarAnuncios() {
+  if (!A.anunciosOk) { $('#lista').innerHTML = FALTA_V5; return; }
+  const l = A.anuncios.filter(coincide);
+  $('#lista').innerHTML = `<div class="cab-lista"><div class="grow dim">La app muestra cada anuncio en una ventana al abrirla, según a quién va dirigido.</div>
+      <button class="btn primary sm" id="an-nuevo">Nuevo anuncio</button></div>` +
+    (l.length ? l.map(filaAnuncio).join('') : `<div class="vacio">${A.q ? 'Nada coincide con la búsqueda.' : 'Aún no hay anuncios.'}</div>`);
+}
+/* datetime-local trabaja en hora local, sin zona */
+const aLocal = iso => iso ? new Date(new Date(iso).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+function editarAnuncio(a) {
+  const nuevo = !a;
+  a = a || { titulo: '', texto: '', audiencia: 'todos', frecuencia: 'una_vez', activo: true, desde: new Date().toISOString() };
+  let imagen = a.imagen_url || '';
+  const m = $('#modal');
+  m.innerHTML = `<div class="box" role="dialog" aria-modal="true">
+    <div style="display:flex;align-items:center;gap:10px"><h2 class="grow">${nuevo ? 'Nuevo anuncio' : 'Editar anuncio'}</h2><button class="btn sm" id="m-x">Cerrar</button></div>
+    <div class="field"><label for="an-t">Título</label><input id="an-t" class="input" maxlength="80" value="${esc(a.titulo)}" placeholder="Ej: Nuevas tarifas desde el lunes"></div>
+    <div class="field"><label for="an-x">Mensaje</label><textarea id="an-x" class="input" rows="4" maxlength="1500" placeholder="Lo que quieres contarles">${esc(a.texto || '')}</textarea></div>
+    <div class="field"><label for="an-f">Imagen (opcional, máx. 3 MB)</label><input id="an-f" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+      <div id="an-prev"></div></div>
+    <div class="form2">
+      <div class="field"><label for="an-bt">Texto del botón (opcional)</label><input id="an-bt" class="input" maxlength="40" value="${esc(a.boton_texto || '')}" placeholder="Ver más"></div>
+      <div class="field"><label for="an-bu">Enlace del botón (opcional)</label><input id="an-bu" class="input" value="${esc(a.boton_url || '')}" placeholder="https://… · tel:… · mailto:…"></div>
+      <div class="field"><label for="an-au">Para quién</label><select id="an-au" class="input">${Object.entries(AUDIENCIA).map(([k, v]) => `<option value="${k}" ${a.audiencia === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+      <div class="field"><label for="an-fr">Cuántas veces</label><select id="an-fr" class="input">${Object.entries(FRECUENCIA).map(([k, v]) => `<option value="${k}" ${a.frecuencia === k ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+      <div class="field"><label for="an-de">Mostrar desde</label><input id="an-de" class="input" type="datetime-local" value="${aLocal(a.desde)}"></div>
+      <div class="field"><label for="an-ha">Hasta (vacío = sin fin)</label><input id="an-ha" class="input" type="datetime-local" value="${aLocal(a.hasta)}"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="an-ac" ${a.activo ? 'checked' : ''}> Activo (publicado)</label>
+    <button class="btn primary full" id="an-ok">${nuevo ? 'Publicar anuncio' : 'Guardar cambios'}</button>
+  </div>`;
+  abrirModal();
+  const prev = () => {
+    $('#an-prev').innerHTML = imagen ? `<img class="prev-img" src="${esc(imagen)}" alt=""><button class="btn sm danger" id="an-quitar" style="margin-top:6px">Quitar imagen</button>` : '';
+    const q = $('#an-quitar'); if (q) q.onclick = () => { imagen = ''; $('#an-f').value = ''; prev(); };
+  };
+  prev();
+  $('#an-f').onchange = async e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (f.size > 3 * 1024 * 1024) { e.target.value = ''; return toast('La imagen pesa más de 3 MB', 'bad'); }
+    $('#an-prev').innerHTML = '<div class="dim">Subiendo imagen...</div>';
+    const ext = (f.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const ruta = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await sb.storage.from('anuncios').upload(ruta, f, { contentType: f.type, upsert: false });
+    if (error) { prev(); return toast('No se pudo subir la imagen: ' + error.message, 'bad'); }
+    imagen = sb.storage.from('anuncios').getPublicUrl(ruta).data.publicUrl;
+    prev();
+  };
+  $('#an-ok').onclick = async () => {
+    const titulo = $('#an-t').value.trim(), url = $('#an-bu').value.trim();
+    if (titulo.length < 2) return toast('Escribe un título', 'bad');
+    if (url && !/^(https?:\/\/|tel:|mailto:)/i.test(url)) return toast('El enlace debe empezar con https://, tel: o mailto:', 'bad');
+    const de = $('#an-de').value, ha = $('#an-ha').value;
+    if (de && ha && new Date(ha) <= new Date(de)) return toast('La fecha "hasta" debe ser después de "desde"', 'bad');
+    const datos = {
+      titulo, texto: $('#an-x').value.trim(), imagen_url: imagen || null,
+      boton_texto: $('#an-bt').value.trim() || null, boton_url: url || null,
+      audiencia: $('#an-au').value, frecuencia: $('#an-fr').value, activo: $('#an-ac').checked,
+      desde: de ? new Date(de).toISOString() : new Date().toISOString(), hasta: ha ? new Date(ha).toISOString() : null
+    };
+    const b = $('#an-ok'); b.disabled = true;
+    const { error } = nuevo ? await sb.from('anuncios').insert(datos) : await sb.from('anuncios').update(datos).eq('id', a.id);
+    b.disabled = false;
+    if (error) return toast(error.message, 'bad');
+    toast(nuevo ? 'Anuncio publicado' : 'Anuncio guardado');
+    cerrarModal(); recargar();
+  };
+}
+
+/* ============================================================
+   Versión del APK: la app instalada compara su build con este y, si
+   hay uno mayor, le pide al usuario descargar e instalar la nueva.
+   ============================================================ */
+function pintarVersion() {
+  if (!A.versionOk || !A.version) { $('#lista').innerHTML = FALTA_V5; return; }
+  const v = A.version;
+  $('#lista').innerHTML = `<div style="padding:16px">
+    <div class="kpi" style="box-shadow:none"><div class="n num">${esc(v.version)} <span class="dim">(build ${v.build})</span></div>
+      <div class="l">Última versión publicada · actualizada ${hace(v.actualizado_en)}</div></div>
+    <div class="meta" style="margin-top:10px">
+      <span class="badge ${v.obligatoria ? 'bad' : ''}">${v.obligatoria ? 'Obligatoria: la app no deja posponerla' : 'Opcional: el usuario puede posponerla hasta el día siguiente'}</span>
+      ${v.apk_url ? `<a class="badge azul" href="${esc(v.apk_url)}" target="_blank" rel="noopener">Descargar APK</a>` : '<span class="badge warn">Sin enlace del APK: la app no avisará</span>'}
+    </div>
+    ${v.notas ? `<p style="white-space:pre-line;margin:12px 0 0">${esc(v.notas)}</p>` : ''}
+    <button class="btn primary" id="ver-editar" style="margin-top:14px">Publicar una versión nueva</button>
+    <p class="dim" style="margin-top:14px">Cómo funciona: cada APK lleva su número de build (el que va después del + en <code>pubspec.yaml</code>, por ejemplo 1.3.0+5 → 5).
+      Al abrir la app, si el build de aquí es mayor que el suyo, muestra una ventana para descargar e instalar la versión nueva.</p>
+  </div>`;
+}
+function editarVersion() {
+  const v = A.version || { version: '', build: 1, apk_url: '', notas: '', obligatoria: false };
+  const m = $('#modal');
+  m.innerHTML = `<div class="box" role="dialog" aria-modal="true">
+    <div style="display:flex;align-items:center;gap:10px"><h2 class="grow">Publicar versión nueva</h2><button class="btn sm" id="m-x">Cerrar</button></div>
+    <div class="form2">
+      <div class="field"><label for="vr-v">Versión</label><input id="vr-v" class="input" value="${esc(v.version)}" placeholder="1.3.0"></div>
+      <div class="field"><label for="vr-b">Build (número entero)</label><input id="vr-b" class="input" type="number" min="1" step="1" value="${+v.build || 1}"></div>
+    </div>
+    <div class="field"><label for="vr-u">Enlace de descarga del APK (https)</label><input id="vr-u" class="input" value="${esc(v.apk_url || '')}" placeholder="https://github.com/…/Llevu-1.3.0.apk"></div>
+    <div class="field"><label for="vr-n">Novedades (se muestran en la ventana)</label><textarea id="vr-n" class="input" rows="4" maxlength="1000">${esc(v.notas || '')}</textarea></div>
+    <label class="check"><input type="checkbox" id="vr-o" ${v.obligatoria ? 'checked' : ''}> Obligatoria (no se puede dejar para después)</label>
+    <button class="btn primary full" id="vr-ok">Guardar</button>
+  </div>`;
+  abrirModal();
+  $('#vr-ok').onclick = async () => {
+    const datos = { version: $('#vr-v').value.trim(), build: parseInt($('#vr-b').value, 10), apk_url: $('#vr-u').value.trim() || null,
+                    notas: $('#vr-n').value.trim() || null, obligatoria: $('#vr-o').checked };
+    if (!/^\d+\.\d+\.\d+$/.test(datos.version)) return toast('La versión va como 1.3.0', 'bad');
+    if (!(datos.build >= 1)) return toast('El build debe ser un número entero', 'bad');
+    if (datos.apk_url && !/^https:\/\//i.test(datos.apk_url)) return toast('El enlace debe empezar con https://', 'bad');
+    if (A.version && datos.build < A.version.build && !confirm('El build es menor que el publicado. ¿Guardar igual?')) return;
+    const { data, error } = await sb.from('app_version').update(datos).eq('id', 1).select().maybeSingle();
+    if (error) return toast(error.message, 'bad');
+    if (!data) return toast('La base no aceptó el cambio (¿la cuenta es admin?)', 'bad');
+    toast('Versión publicada: las apps con un build menor pedirán actualizar');
+    cerrarModal(); recargar();
+  };
+}
+
+/* ---------- mapa ---------- */
+let mapa, capas = [];
+A.marcas = {};
+function iniciarMapa() {
+  mapa = L.map('mapa', { zoomControl: true }).setView([-0.1807, -78.4678], 12);
+  L.tileLayer(TILES, { maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap &copy; CARTO' }).addTo(mapa);
+}
+const icono = (cls, txt, t = 22) => L.divIcon({ className: 'mk', html: `<div class="pt ${cls}">${txt}</div>`, iconSize: [t, t], iconAnchor: [t / 2, t / 2] });
+function pintarMapa(enfocar) {
+  if (!mapa) return;
+  capas.forEach(c => mapa.removeLayer(c)); capas = []; A.marcas = {};
+  const pts = [];
+  const lista = ['pendientes', 'curso', 'hoy'].includes(A.tab) ? listaTab(A.tab) : A.sol.filter(s => ACTIVOS.includes(s.estado));
+  lista.forEach((s, i) => {
+    const a = [+s.origen_lat, +s.origen_lng], b = [+s.destino_lat, +s.destino_lng];
+    const sel = A.sel === s.id;
+    const tip = `<b>${s.tipo === 'paquete' ? 'Envío' : 'Viaje'}</b> · ${esc(s.pasajero_nombre || '')}<br>${esc(s.origen_texto || '')} → ${esc(s.destino_texto || '')}<br>${esc((ESTADO[s.estado] || [])[1] || s.estado)} · ${money(s.precio_final || s.precio_ofrecido)}`;
+    capas.push(
+      L.polyline([a, b], { color: s.estado === 'buscando' ? '#E0912A' : '#0A5AFF', weight: sel ? 5 : 3, opacity: sel ? 1 : .6, dashArray: s.estado === 'buscando' ? '6 6' : null }).addTo(mapa),
+      L.marker(a, { icon: icono('a', 'A') }).addTo(mapa).bindTooltip(tip),
+      L.marker(b, { icon: icono('b', 'B') }).addTo(mapa).bindTooltip(tip));
+    if (!enfocar || sel) pts.push(a, b);
+  });
+  A.conductores.filter(enLinea).forEach(c => {
+    if (c.lat == null) return;
+    const p = A.perfiles[c.conductor_id] || {};
+    const v = (A.vehiculos[c.conductor_id] || [])[0];
+    const mk = L.marker([c.lat, c.lng], { icon: icono('c', '🚗', 26) }).addTo(mapa)
+      .bindTooltip(`<b>Conductor en línea</b><br>${esc(p.nombre || 'Conductor')} ${v ? '· ' + esc(v.placa) : ''}<br>${esc(p.celular || '')} · ${hace(c.actualizado_en)}`);
+    capas.push(mk); A.marcas[c.conductor_id] = mk;
+    if (!enfocar) pts.push([c.lat, c.lng]);
+  });
+  /* Pasajeros conectados (y conductores con la app abierta pero fuera de
+     línea): punto morado, gris si la app está en segundo plano. */
+  const enMapa = new Set(A.conductores.filter(enLinea).map(c => c.conductor_id));
+  A.presencia.filter(x => conectado(x) && x.lat != null && !enMapa.has(x.usuario_id)).forEach(x => {
+    const p = A.perfiles[x.usuario_id] || {};
+    const mk = L.marker([x.lat, x.lng], { icon: icono('p' + (x.app_abierta ? '' : ' dormido'), x.modo === 'conductor' ? 'C' : 'P', 20) }).addTo(mapa)
+      .bindTooltip(`<b>${x.modo === 'conductor' ? 'Conductor (fuera de línea)' : 'Pasajero'}</b> · ${x.app_abierta ? 'usando la app' : 'app en segundo plano'}<br>${esc(p.nombre || '')}<br>${esc(p.celular || '')} · ${hace(x.visto_en)}`);
+    capas.push(mk); A.marcas[x.usuario_id] = mk;
+    if (!enfocar) pts.push([x.lat, x.lng]);
+  });
+  if (pts.length) mapa.fitBounds(pts, { padding: [40, 40], maxZoom: 16 });
+}
+
+/* ---------- arranque ---------- */
+(async () => {
+  const { data } = await sb.auth.getSession();
+  const u = data.session && data.session.user;
+  if (u && await esAdmin(u)) entrar(u);
+  else if (u) await sb.auth.signOut();
+})();
+</script>
+</body>
+</html>
