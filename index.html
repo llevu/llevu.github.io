@@ -4,8 +4,20 @@
 <meta charset="utf-8">
 <meta http-equiv="content-type" content="text/html; charset=utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<title>Llevu — viajes y envíos</title>
-<meta name="description" content="Pide un carro o manda un paquete con precio claro desde el primer momento.">
+<title>Llevu — viajes, envíos y trasteos</title>
+<meta name="description" content="Pide un carro, manda un paquete o haz tu trasteo en Quito. Tú pones el precio del viaje y pagas en efectivo.">
+<!-- Vista previa al compartir el enlace por WhatsApp o Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Llevu">
+<meta property="og:title" content="Llevu · viajes, envíos y trasteos en Quito">
+<meta property="og:description" content="Pide un carro, manda un paquete o haz tu trasteo. Pagas en efectivo al conductor.">
+<meta property="og:url" content="https://llevu.github.io/">
+<meta property="og:image" content="https://llevu.github.io/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <!-- Politica de seguridad de contenido. Deja pasar solo los origenes que la
      app usa de verdad: las dos librerias, las fuentes, las teselas del mapa,
@@ -788,16 +800,20 @@ html[data-tema="oscuro"] .candado{background:#2A2214;border-color:#5A4521}
   <section id="auth" class="auth hidden">
     <div class="hero">
       <div class="brand big"><i></i>Llevu</div>
-      <h1>Viajes y envíos<br>en tu ciudad</h1>
-      <p>Pide un carro o manda un paquete. Precio claro desde el primer momento.</p>
+      <h1>Viajes, envíos y trasteos<br>en tu ciudad</h1>
+      <p>Pide un carro, manda un paquete o mueve tus cosas. Precio claro desde el primer momento y pago en efectivo.</p>
       <div class="hero-cards">
         <div class="hc" id="hc-1">Viajes</div>
         <div class="hc" id="hc-2">Envíos</div>
-        <div class="hc" id="hc-3">Hasta 40% menos</div>
+        <div class="hc" id="hc-3">Trasteos</div>
       </div>
     </div>
 
     <div class="auth-card">
+      <!-- Solo en la web: quien entra desde un Android puede bajar la app
+           (avisos con la app cerrada); en iPhone se agrega a la pantalla de
+           inicio. Lo muestra pintarDescarga(). -->
+      <div id="descarga" class="hidden" style="margin-bottom:14px"></div>
       <!-- Google va primero: es lo que se ve apenas se abre la app, sin
            tener que bajar ni elegir pestaña. -->
         <button class="btn google full" style="margin-top:0" id="btn-google">
@@ -877,7 +893,7 @@ html[data-tema="oscuro"] .candado{background:#2A2214;border-color:#5A4521}
         <p style="margin:0 0 6px">
           <button id="btn-politicas" style="color:var(--azul);font-weight:600;background:none;border:none;cursor:pointer;text-decoration:underline;font-size:12.5px;padding:0">Políticas de la Empresa</button>
         </p>
-        <p style="margin:0">Responsable: <b>César Santana</b> · <a href="mailto:abulingo.help@gmail.com" style="color:var(--azul);text-decoration:none">abulingo.help@gmail.com</a></p>
+        <p style="margin:0">Responsable: <b>César Santana</b> · <a id="correo-sop" href="#" style="color:var(--azul);text-decoration:none"></a></p>
       </div>
     </div>
   </section>
@@ -1032,6 +1048,8 @@ const IC = {
   atras:    c => svgi('<path d="M19 12H5M11 6l-6 6 6 6"/>', c),
   arriba:   c => svgi('<path d="m6 15 6-6 6 6"/>', c),
   abajo:    c => svgi('<path d="m6 9 6 6 6-6"/>', c),
+  descargar:c => svgi('<path d="M12 3.5v11.5M7 10.5l5 5 5-5M4.5 20h15"/>', c),
+  regalo:   c => svgi('<rect x="3.5" y="8" width="17" height="4.5" rx="1"/><path d="M5 12.5V20h14v-7.5M12 8v12M12 8c-1.5-3.5-5.5-3.5-5.5-1.2C6.5 8 9 8 12 8zm0 0c1.5-3.5 5.5-3.5 5.5-1.2C17.5 8 15 8 12 8z"/>', c),
   estrella: c => svgi('<path d="m12 3.2 2.7 5.6 6 .9-4.3 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.3 9.7l6-.9z"/>', (c || '') + ' solido'),
   escudo:   c => svgi('<path d="M12 2.7 4.8 5.6v5.9c0 4.4 3 8.5 7.2 9.8 4.2-1.3 7.2-5.4 7.2-9.8V5.6z"/>', c),
   casa:     c => svgi('<path d="M3.5 11 12 3.6l8.5 7.4"/><path d="M5.6 12.6V20h12.8v-7.4"/><path d="M9.8 20v-5h4.4v5"/>', c),
@@ -2497,7 +2515,7 @@ function crearAPI(url, key) {
 
     /* ---------- PIN ---------- */
     async recuperarPin(correo) {
-      const { error } = await sb.auth.resetPasswordForEmail(correo, { redirectTo: location.href.split('#')[0] });
+      const { error } = await sb.auth.resetPasswordForEmail(correo, { redirectTo: urlDeRegreso() });
       if (error) throw error;
     },
     async cambiarPin(pin) {
@@ -2532,20 +2550,29 @@ function pintarEstadoCfg() {
 
 /* Cambia la versión cuando cambie el texto: a quien aceptó una versión
    anterior se le vuelve a pedir que acepte. */
-const TERMINOS_VERSION = '2026-09-c';
+const TERMINOS_VERSION = '2026-10-a';
 const CORREO_SOPORTE = 'abulingo.help@gmail.com';
+/* Dirección pública de la web y descarga del APK más nuevo. Cada release
+   lleva un archivo Llevu.apk, así que este enlace no cambia nunca. */
+const URL_WEB = 'https://llevu.github.io/';
+const URL_APK = 'https://github.com/llevu/llevu.github.io/releases/latest/download/Llevu.apk';
+const URL_CONDUCTOR = URL_WEB + '?conductor';
+/* A dónde vuelven los enlaces de los correos (olvidé mi PIN, confirmar
+   cuenta). Dentro del APK la página es un archivo local (file://) que el
+   navegador del teléfono no puede abrir: ahí se usa la web pública. */
+const urlDeRegreso = () => /^https?:$/.test(location.protocol) ? location.href.split('#')[0] : URL_WEB;
 const TEXTO_TERMINOS = `
   <p><b>Versión ${TERMINOS_VERSION}.</b> Al crear una cuenta o usar Llevu aceptas estas condiciones. Si no estás de acuerdo, no uses la plataforma.</p>
 
   <h4>1. Quiénes somos y qué hacemos</h4>
-  <p>Llevu es una plataforma tecnológica administrada por <b>César Santana</b> (contacto: <a href="mailto:${CORREO_SOPORTE}" style="color:var(--azul)">${CORREO_SOPORTE}</a>) que <b>pone en contacto</b> a personas que necesitan un traslado o un envío con conductores independientes que lo realizan. Llevu no es una empresa de transporte ni de mensajería: no es dueña de los vehículos, no emplea a los conductores y no transporta personas ni bienes por sí misma. Cada servicio es un acuerdo directo entre el usuario y el conductor.</p>
+  <p>Llevu es una plataforma tecnológica administrada por <b>César Santana</b> (contacto: <a href="mailto:${CORREO_SOPORTE}" style="color:var(--azul)">${CORREO_SOPORTE}</a>) que <b>pone en contacto</b> a personas que necesitan un traslado, un envío o un trasteo con conductores independientes que lo realizan. Llevu no es una empresa de transporte ni de mensajería: no es dueña de los vehículos, no emplea a los conductores y no transporta personas ni bienes por sí misma. Cada servicio es un acuerdo directo entre el usuario y el conductor.</p>
 
   <h4>2. Requisitos y cuenta</h4>
   <ul>
     <li>Debes ser mayor de 18 años y dar datos reales: nombre, número de cédula, celular y correo.</li>
     <li>Para usar Llevu debes registrar una foto de tu rostro. Un administrador revisa tus datos y activa tu cuenta; hasta entonces queda <b>en revisión</b> y no podrás pedir ni realizar servicios.</li>
     <li>Cada día, antes de usar la app, debes verificar tu identidad con la cámara (una foto sonriendo que se compara con la de tu registro).</li>
-    <li>Los conductores además deben ser habilitados manualmente por un administrador, con su vehículo (carro o moto) aprobado; con moto solo se hacen envíos, y son responsables de contar con licencia, matrícula, SOAT/seguros y demás permisos que exija la ley y la autoridad de tránsito competente.</li>
+    <li>Los conductores además deben ser habilitados manualmente por un administrador, con su vehículo (carro, moto, camioneta o camión) aprobado. Con moto solo se hacen envíos y con camioneta o camión, trasteos. Cada conductor es responsable de contar con licencia del tipo que corresponda, matrícula, SOAT/seguros y demás permisos que exija la ley y la autoridad de tránsito competente.</li>
     <li>Tu PIN es personal. Eres responsable de lo que se haga con tu cuenta.</li>
   </ul>
 
@@ -2558,7 +2585,7 @@ const TEXTO_TERMINOS = `
 
   <h4>3. Precios y pago</h4>
   <ul>
-    <li>Viajes: el pasajero propone el precio (mínimo $1.50 USD) y el conductor lo acepta o contraoferta. Envíos: tarifa fija calculada por distancia, tiempo, tamaño, vehículo (carro o moto) y urgencia. Viajes y envíos pueden tener hasta 4 destinos (3 en el camino y el destino final).</li>
+    <li>Viajes: el pasajero propone el precio (mínimo $1.50 USD) y el conductor lo acepta o contraoferta. Envíos: tarifa fija calculada por distancia, tiempo, tamaño, vehículo (carro o moto) y urgencia. Trasteos: tarifa fija calculada por distancia, tiempo, vehículo (camioneta o camión) y número de ayudantes. Viajes, envíos y trasteos pueden tener hasta 4 destinos (3 en el camino y el destino final).</li>
     <li>El pago es en efectivo, directo al conductor, al terminar el servicio. Llevu no cobra por adelantado ni solicita datos de tarjetas.</li>
   </ul>
 
@@ -2569,9 +2596,16 @@ const TEXTO_TERMINOS = `
     <li>Plazos de entrega, contados desde que el conductor acepta el envío: <b>urgente</b>, el tiempo que tarde en llegar al punto de recogida más el del recorrido hasta la entrega; <b>dentro de 2 horas</b> y <b>dentro de 5 horas</b>, esa franja completa. Son metas de servicio, no una garantía.</li>
   </ul>
 
+  <h4>4.1 Trasteos</h4>
+  <ul>
+    <li>Quien pide el trasteo (o alguien de su confianza) debe estar presente al cargar y al descargar, y entregar las cosas listas para mover: embaladas, desarmadas si hace falta y sin objetos de valor sueltos.</li>
+    <li>Las mismas prohibiciones de los envíos aplican a los trasteos. Electrodomésticos, vidrios, espejos y objetos frágiles viajan bajo riesgo de quien los envía si no van bien protegidos.</li>
+    <li>El precio incluye el vehículo y los ayudantes que se pidieron. Pisos sin ascensor, esperas largas o carga que no se declaró pueden acordarse aparte, directamente con el conductor.</li>
+  </ul>
+
   <h4>5. Limitación de responsabilidad</h4>
   <ul>
-    <li><b>Llevu no se hace responsable por robos, hurtos, pérdidas, daños o retrasos</b> de los paquetes enviados, ni por su contenido.</li>
+    <li><b>Llevu no se hace responsable por robos, hurtos, pérdidas, daños o retrasos</b> de los paquetes enviados ni de las cosas de un trasteo, ni por su contenido.</li>
     <li><b>Llevu no se hace responsable por accidentes, lesiones, daños, delitos, conflictos o cualquier hecho</b> que les ocurra a pasajeros, conductores, destinatarios o terceros durante o con ocasión de un servicio. Cada usuario y cada conductor responde por sus propios actos.</li>
     <li>Lo anterior aplica en la medida en que lo permita la ley ecuatoriana, incluida la Ley Orgánica de Defensa del Consumidor; no limita derechos que la ley declare irrenunciables.</li>
   </ul>
@@ -2743,9 +2777,36 @@ const pantallaAcceso = () => {
   $('#auth').classList.remove('hidden');
   $('#app').classList.add('hidden');
   pintarEstadoCfg();
+  pintarDescarga();
+  enlaceDeRegistro();
   const uc = leerLocal('ultimo_correo', '');
   if (uc && $('#li-correo') && !$('#li-correo').value) $('#li-correo').value = uc;
 };
+
+/* Solo en la web: botón para bajar el APK en Android; en iPhone, cómo
+   dejar Llevu en la pantalla de inicio (allí no hay APK). */
+function pintarDescarga() {
+  const el = $('#descarga');
+  if (!el) return;
+  const ua = navigator.userAgent || '';
+  const instalada = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  if (!enApp() && /Android/i.test(ua)) {
+    el.innerHTML = `<a class="btn primary full" href="${URL_APK}" style="margin-top:0;text-decoration:none">${IC.descargar('sm')} Descargar la app para Android</a>
+      <p class="fine" style="margin:6px 0 0;text-align:center">Con la app te avisamos de tu conductor aunque la tengas cerrada. Si Android lo pregunta, permite instalar apps desde el navegador.</p>`;
+  } else if (!enApp() && /iPhone|iPad|iPod/i.test(ua) && !instalada) {
+    el.innerHTML = `<div class="aviso" style="margin:0">En iPhone: toca <b>Compartir</b> y luego <b>Agregar a inicio</b> para tener Llevu como una app.</div>`;
+  } else { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+}
+/* Enlaces para campañas: llevu.github.io/?conductor abre el registro con
+   "Conductor" ya marcado; ?registro abre el registro de pasajero. */
+function enlaceDeRegistro() {
+  const p = new URLSearchParams(location.search);
+  if (!p.has('conductor') && !p.has('registro')) return;
+  const tab = $('#authtabs [data-tab="registro"]');
+  if (tab) tab.click();
+  if (p.has('conductor')) { const r = $('#rolsel [data-rol="conductor"]'); if (r) r.click(); }
+}
 
 const errorDeBase = e =>
   e && (e.status === 500 || /database error|unexpected_failure|internal/i.test(e.message || ''));
@@ -2800,7 +2861,7 @@ async function registrar() {
     const datos = { nombre, cedula, celular, rol };
     let r = await api.sb.auth.signUp({
       email: correo, password: clave,
-      options: { data: datos, emailRedirectTo: location.href.split('#')[0] }
+      options: { data: datos, emailRedirectTo: urlDeRegreso() }
     });
 
     // Si el servidor falla guardando el usuario, reintenta sin metadatos:
@@ -2813,8 +2874,8 @@ async function registrar() {
 
     if (!r.data.session) {
       modal(`<div class="grip"></div><h2>Confirma tu correo</h2>
-        <p class="dim" style="margin:8px 0 16px">Tu cuenta se creó, pero el proyecto tiene activada la confirmación por correo. Abre el mensaje que te llegó a <b>${esc(correo)}</b> y luego ingresa con tu PIN.</p>
-        <p class="fine">Si no te llega nada, apaga <b>Confirm email</b> en Authentication → Sign In / Providers → Email, o configura un SMTP propio.</p>
+        <p class="dim" style="margin:8px 0 16px">Tu cuenta se creó. Abre el mensaje que te llegó a <b>${esc(correo)}</b> para confirmarla y luego ingresa con tu PIN.</p>
+        <p class="fine">Si no te llega en unos minutos, revisa la carpeta de correo no deseado o escríbenos a ${esc(CORREO_SOPORTE)}.</p>
         <button class="btn primary full" id="ok-conf" style="margin-top:14px">Entendido</button>`);
       $('#ok-conf').onclick = cerrarModal;
       return;
@@ -2856,10 +2917,11 @@ async function errorRegistro(e, correo) {
     return;
   }
   if (/password/i.test(msg) && /short|6/i.test(msg)) return toast('Revisa que hayas puesto los 4 dígitos del PIN', 'bad');
-  if (errorDeBase(e)) {
-    return modalDiagnostico('El servidor de Supabase devolvió error 500 al guardar el usuario. Casi siempre es una de estas dos cosas: la confirmación por correo está encendida sin SMTP, o quedó un trigger sobre auth.users que falla. Esto es lo que encontré:');
-  }
-  toast(msg, 'bad');
+  /* El detalle técnico queda en la consola; a la persona se le dice qué
+     hacer, no qué parte del servidor falló. */
+  console.warn('[Llevu] registro', e);
+  if (errorDeBase(e)) return toast(`No pudimos crear tu cuenta en este momento. Intenta en unos minutos o escríbenos a ${CORREO_SOPORTE}`, 'bad');
+  toast(explicarError(e, 'registro'), 'bad');
 }
 
 /* Crea la fila en perfiles. Nunca bloquea el registro si algo falla. */
@@ -2914,8 +2976,8 @@ async function ingresar() {
       }
       else if (/not confirmed/i.test(error.message)) toast('Falta confirmar tu correo. Revisa tu bandeja de entrada', 'bad');
       else if (/rate limit|too many/i.test(error.message)) toast('Demasiados intentos seguidos. Prueba de nuevo en unos minutos', 'bad');
-      else if (errorDeBase(error)) modalDiagnostico('El servidor devolvió un error al iniciar sesión. Esto encontré:');
-      else toast(error.message, 'bad');
+      else if (errorDeBase(error)) toast('El servidor no respondió bien. Intenta de nuevo en unos minutos', 'bad');
+      else toast(explicarError(error, 'ingresar'), 'bad');
       limpiarPin('login');
       return;
     }
@@ -2962,8 +3024,10 @@ async function olvidePin() {
   try {
     await api.recuperarPin(correo);
     modal(`<div class="grip"></div><h2>Revisa tu correo</h2>
-      <p class="dim" style="margin:8px 0 16px">Le enviamos un enlace a <b>${esc(correo)}</b>. Ábrelo desde este mismo teléfono y podrás poner un PIN nuevo.</p>
-      <p class="fine">Si no te llega en unos minutos, revisa el correo no deseado. El envío depende del SMTP configurado en tu proyecto de Supabase.</p>
+      <p class="dim" style="margin:8px 0 16px">Le enviamos un enlace a <b>${esc(correo)}</b>. ${enApp()
+        ? 'Ábrelo en este teléfono: se abre la web de Llevu para que pongas tu PIN nuevo. Después vuelve a la app y entra con ese PIN.'
+        : 'Ábrelo desde este mismo teléfono y podrás poner un PIN nuevo.'}</p>
+      <p class="fine">Si no te llega en unos minutos, revisa la carpeta de correo no deseado o spam.</p>
       <button class="btn primary full" id="ol-x" style="margin-top:14px">Entendido</button>`);
     $('#ol-x').onclick = cerrarModal;
   } catch (e) {
@@ -3163,7 +3227,10 @@ function escucharMisServicios() {
   });
 }
 const nombreCorto = n => (n || '').split(' ')[0] || '';
-const queEs = s => s.tipo === 'paquete' ? 'envío' : 'viaje';
+/* El trasteo se guarda como tipo 'paquete' (con vehículo camioneta o
+   camión), así que todo texto que diga "envío" tiene que preguntar antes. */
+const queEs = s => esTrasteo(s) ? 'trasteo' : s.tipo === 'paquete' ? 'envío' : 'viaje';
+const QueEs = s => { const q = queEs(s); return q[0].toUpperCase() + q.slice(1); };
 const propio = (s, estado) => S.propios.has(s.id + ':' + estado);
 
 function alAparecer(s) {
@@ -3179,10 +3246,10 @@ function alCambiar(a, s) {
     if (a.estado === 'buscando' && EN_CURSO.includes(s.estado)) {
       avisar('¡Conductor asignado!', `${nombreCorto(s.conductor_nombre) || 'Un conductor'} tomó tu ${queEs(s)}${s.placa ? ' · ' + s.placa : ''}`, 'aceptado', `estado:${s.id}:aceptado`);
     } else if (s.estado === 'en_camino') {
-      avisar('Tu conductor va en camino', s.tipo === 'paquete' ? 'Va a recoger tu paquete' : 'Prepárate para salir', 'aceptado', `estado:${s.id}:en_camino`);
+      avisar('Tu conductor va en camino', esTrasteo(s) ? 'Va al punto de carga' : s.tipo === 'paquete' ? 'Va a recoger tu paquete' : 'Prepárate para salir', 'aceptado', `estado:${s.id}:en_camino`);
     } else if (s.estado === 'a_bordo') {
-      avisar(s.tipo === 'paquete' ? 'Paquete recogido' : 'Viaje en curso',
-        s.tipo === 'paquete' ? `Va rumbo a ${s.destinatario || 'la entrega'}` : 'Rumbo a tu destino', 'mensaje', `estado:${s.id}:a_bordo`);
+      avisar(esTrasteo(s) ? 'Carga a bordo' : s.tipo === 'paquete' ? 'Paquete recogido' : 'Viaje en curso',
+        esTrasteo(s) ? 'Va rumbo al destino del trasteo' : s.tipo === 'paquete' ? `Va rumbo a ${s.destinatario || 'la entrega'}` : 'Rumbo a tu destino', 'mensaje', `estado:${s.id}:a_bordo`);
     }
   }
 }
@@ -3193,14 +3260,14 @@ async function alSalir(a) {
   if (S.solicitud && S.solicitud.id === a.id) resetViaje();
   if (fin.estado === 'finalizado') {
     if (!propio(fin, 'finalizado')) {
-      avisar(fin.tipo === 'paquete' ? 'Envío entregado' : 'Viaje finalizado',
-        fin.tipo === 'paquete' ? `Tu paquete llegó a ${fin.destinatario || 'su destino'}` : 'Gracias por viajar con Llevu', 'mensaje', `estado:${fin.id}:finalizado`);
+      avisar(esTrasteo(fin) ? 'Trasteo terminado' : fin.tipo === 'paquete' ? 'Envío entregado' : 'Viaje finalizado',
+        esTrasteo(fin) ? 'Tus cosas llegaron a su destino' : fin.tipo === 'paquete' ? `Tu paquete llegó a ${fin.destinatario || 'su destino'}` : 'Gracias por viajar con Llevu', 'mensaje', `estado:${fin.id}:finalizado`);
     }
     if (S.modo === 'pasajero' || fin.tipo === 'viaje') S.porCalificar.push(fin);
   } else if (fin.estado === 'cancelado' && S.modo === 'pasajero' && fin.motivo_cancelacion === MOTIVO_SIN_CONDUCTOR) {
     if (!propio(fin, 'cancelado')) sinConductor(fin);
   } else if (fin.estado === 'cancelado' && !propio(fin, 'cancelado')) {
-    avisar(`${fin.tipo === 'paquete' ? 'Envío' : 'Viaje'} cancelado`,
+    avisar(`${QueEs(fin)} cancelado`,
       fin.motivo_cancelacion || 'La otra parte canceló el servicio', 'mensaje', `estado:${fin.id}:cancelado`);
   }
 }
@@ -3256,7 +3323,8 @@ function sincronizarSeguimiento() {
    el respaldo si el dato aún no llegó. */
 const MIN_URGENCIA = { '1h': 60, '2h': 120, '5h': 300 };
 function limiteEntrega(s) {
-  if (s.tipo !== 'paquete' || !s.aceptado_en) return null;
+  /* Un trasteo no tiene plazo: cargar y descargar toma lo que toma. */
+  if (s.tipo !== 'paquete' || esTrasteo(s) || !s.aceptado_en) return null;
   if (s.entrega_limite) return new Date(s.entrega_limite).getTime();
   const u = s.urgencia || 'urgente';
   const min = u === 'urgente'
@@ -3569,6 +3637,7 @@ function textoCupo() {
   const u = act.filter(x => x.tipo === 'paquete' && (x.urgencia || 'urgente') === 'urgente').length;
   const d = act.filter(x => x.tipo === 'paquete' && ['1h', '2h'].includes(x.urgencia)).length;
   const c = act.filter(x => x.tipo === 'paquete' && x.urgencia === '5h').length;
+  if (TRASTEO[miVehiculo()]) return `<div class="cupo"><span class="chipdato">${IC[miVehiculo()]('sm')}Trasteos ${u}/1</span></div>`;
   return `<div class="cupo">${miVehiculo() === 'moto' ? '' : `<span class="chipdato">${IC.carro('sm')}Viajes ${v}/1</span>`}
     <span class="chipdato">${IC.rayo('sm')}Urgentes ${u}/1</span>
     <span class="chipdato">${IC.reloj('sm')}2 h ${d}/${MAX_ENVIOS_2H}</span>
@@ -3589,7 +3658,7 @@ function escucharCercanas() {
     if (!primera && nuevas.length) {
       const s = nuevas[0];
       const km = kmRuta(S.pos, { lat: s.origen_lat, lng: s.origen_lng });
-      avisar(`Nuevo ${s.tipo === 'paquete' ? 'envío' : 'viaje'} por ${money(s.precio_ofrecido)}`,
+      avisar(`Nuevo ${queEs(s)} por ${money(s.precio_ofrecido)}`,
         `A ${km} km de ti · ${s.origen_texto || ''}`, 'nueva', `nueva:${s.id}`);
     }
     primera = false;
@@ -3943,7 +4012,7 @@ function abrirChat(sArg) {
       <div class="avatar">${iniciales(o.nombre)}</div>
       <div class="grow" style="margin-left:10px">
         <h3 style="margin:0">${esc(o.nombre)}</h3>
-        <div class="dim">${s.tipo === 'paquete' ? 'Envío en curso' : 'Viaje en curso'}</div>
+        <div class="dim">${QueEs(s)} en curso</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <a class="btn sm suave" href="tel:${esc(o.tel)}">Llamar</a>
@@ -4141,7 +4210,13 @@ const ESTADOS_TK = {
 };
 const FAQ = [
   ['¿Cómo se calcula el precio?',
-   'En los viajes tú propones el precio y el conductor lo acepta o te contraoferta. En los envíos la tarifa es fija y depende de la distancia, del tamaño del paquete y de qué tan rápido lo necesitas.'],
+   'En los viajes tú propones el precio y el conductor lo acepta o te contraoferta. En los envíos la tarifa es fija y depende de la distancia, del tamaño del paquete y de qué tan rápido lo necesitas. En los trasteos también es fija: depende de la distancia, de si es camioneta o camión y de cuántos ayudantes pides.'],
+  ['¿Cómo pido un trasteo?',
+   'En Inicio elige "Trasteo", marca dónde se carga y a dónde va, escoge camioneta (pocos muebles, hasta 1 tonelada) o camión (casa o local completo) y cuántos ayudantes necesitas. Cuenta qué vas a mover y si hay pisos sin ascensor. Tienes que estar presente al cargar y al descargar.'],
+  ['¿En qué zonas funciona Llevu?',
+   'Hoy en Quito y sus valles (Cumbayá, Tumbaco, Los Chillos, Calderón, Pomasqui). Puedes pedir hacia otras partes del país, pero puede que no haya conductores cerca.'],
+  ['Quiero trabajar como conductor',
+   'Crea tu cuenta como conductor (o activa "Modo conductor" en tu Perfil), registra tu carro, moto, camioneta o camión y la foto de tu rostro. Un administrador revisa tus datos y te habilita. Tú decides cuándo te conectas y cobras en efectivo.'],
   ['Me sale "cuenta en revisión"',
    'A los conductores y a sus vehículos los habilita un administrador antes de poder recibir solicitudes. Si ya pasaron varias horas, ábrenos un caso con tu placa y lo revisamos.'],
   ['Olvidé mi PIN',
@@ -4412,12 +4487,12 @@ function pintarEta() {
     const cerca = km < .2;
     if (cerca && s.estado !== 'a_bordo' && !S.avisoLlegadaPor[s.id]) {
       S.avisoLlegadaPor[s.id] = true;
-      avisar(s.tipo === 'paquete' ? 'El conductor llegó por tu paquete' : 'Tu conductor ya llegó',
-        s.tipo === 'paquete' ? 'Entrégale el paquete' : 'Sal a su encuentro' + (S.pines[s.id] ? ` · Tu PIN es ${S.pines[s.id]}` : ''),
+      avisar(esTrasteo(s) ? 'El conductor llegó para cargar' : s.tipo === 'paquete' ? 'El conductor llegó por tu paquete' : 'Tu conductor ya llegó',
+        esTrasteo(s) ? 'Sal a recibirlo' : s.tipo === 'paquete' ? 'Entrégale el paquete' : 'Sal a su encuentro' + (S.pines[s.id] ? ` · Tu PIN es ${S.pines[s.id]}` : ''),
         'llegada', `llegada:${s.id}`);
     }
     const txt = cerca
-      ? (s.estado === 'a_bordo' ? 'Llegando al destino' : (s.tipo === 'paquete' ? 'El conductor está en la recogida' : 'Tu conductor ya está afuera'))
+      ? (s.estado === 'a_bordo' ? 'Llegando al destino' : (s.tipo === 'paquete' ? 'El conductor está en el punto de recogida' : 'Tu conductor ya está afuera'))
       : `A ${km} km · unos ${minRuta(km)} min`;
     $$(`[data-eta="${s.id}"]`).forEach(el => { el.textContent = txt; });
   });
@@ -4489,10 +4564,10 @@ function desenfocar() {
 
 const PASOS_SERVICIO = ['buscando', 'aceptado', 'en_camino', 'a_bordo', 'finalizado'];
 const ESTADO_CORTO = {
-  buscando: s => s.tipo === 'paquete' ? 'Buscando quién lo lleve' : 'Buscando conductor',
+  buscando: s => esTrasteo(s) ? `Buscando ${TRASTEO[s.vehiculo].t.toLowerCase()}` : s.tipo === 'paquete' ? 'Buscando quién lo lleve' : 'Buscando conductor',
   aceptado: s => `${nombreCorto(s.conductor_nombre) || 'Conductor'} asignado`,
-  en_camino: s => s.tipo === 'paquete' ? 'Va por tu paquete' : 'Va a recogerte',
-  a_bordo: s => s.tipo === 'paquete' ? 'Llevando tu paquete' : 'En viaje',
+  en_camino: s => esTrasteo(s) ? 'Va al punto de carga' : s.tipo === 'paquete' ? 'Va por tu paquete' : 'Va a recogerte',
+  a_bordo: s => esTrasteo(s) ? 'Llevando tus cosas' : s.tipo === 'paquete' ? 'Llevando tu paquete' : 'En viaje',
 };
 function barraProgreso(s) {
   const i = PASOS_SERVICIO.indexOf(s.estado);
@@ -4904,7 +4979,7 @@ function sinConductor(s) {
     cap.innerHTML = `<div class="caja" role="dialog" aria-modal="true" aria-labelledby="sc-t"><div class="cuerpo">
       <div class="etq">${IC.reloj('sm')}Pasaron 7 minutos</div>
       <h2 id="sc-t">Ningún conductor disponible</h2>
-      <div class="txt">Nadie tomó tu ${envio ? 'envío' : 'viaje'} a ${esc(s.destino_texto || 'tu destino')}. Dejamos tus puntos y datos listos: puedes intentarlo de nuevo${envio ? '' : ' o subir un poco el precio'}.</div>
+      <div class="txt">Nadie tomó tu ${queEs(s)} a ${esc(s.destino_texto || 'tu destino')}. Dejamos tus puntos y datos listos: puedes intentarlo de nuevo${envio ? '' : ' o subir un poco el precio'}.</div>
       <button class="btn primary full" id="sc-ok">Intentar de nuevo</button>
       <button class="btn ghost full" id="sc-x">Cerrar</button>
     </div></div>`;
@@ -5018,6 +5093,7 @@ function seguirSolicitud() {
 function pasoEsperando(sh) {
   const s = S.solicitud;
   const fijo = s.tipo === 'paquete';
+  const tr = esTrasteo(s);
   const ofs = S.ofertas.map(o => `
     <div class="card">
       <div class="offer">
@@ -5032,19 +5108,19 @@ function pasoEsperando(sh) {
     </div>`).join('');
   sh.innerHTML = `
     <div class="head"><button class="back" id="b-pedidos" aria-label="Mis pedidos">${IC.atras('sm')}</button>
-      <div class="grow"><div class="dim">${fijo ? 'Envío a ' + esc(s.destinatario || s.destino_texto || '') : 'Viaje a ' + esc(s.destino_texto || '')}</div></div>
+      <div class="grow"><div class="dim">${tr ? 'Trasteo a ' + esc(s.destino_texto || '') : fijo ? 'Envío a ' + esc(s.destinatario || s.destino_texto || '') : 'Viaje a ' + esc(s.destino_texto || '')}</div></div>
       ${S.activos.length > 1 ? `<span class="badge">${S.activos.length} pedidos</span>` : ''}</div>
     <div class="wait"><div class="spin"></div>
-      <div class="grow"><h3>${fijo ? 'Buscando quién lleve tu envío' : 'Buscando conductor por ' + money(s.precio_ofrecido)}</h3>
+      <div class="grow"><h3>${tr ? `Buscando ${TRASTEO[s.vehiculo].t.toLowerCase()} para tu trasteo` : fijo ? 'Buscando quién lleve tu envío' : 'Buscando conductor por ' + money(s.precio_ofrecido)}</h3>
       <div class="dim">${fijo || s.auto_asignar
         ? 'Se asigna al primer conductor que acepte' + (fijo ? ' el precio fijo de ' + money(s.precio_ofrecido) : '')
         : (S.ofertas.length ? S.ofertas.length + ' oferta(s) recibida(s)' : 'Avisando a los conductores cercanos')}</div>
       <div class="dim" data-cuenta="${s.id}" style="margin-top:4px;font-weight:600">${textoCuenta(s)}</div></div>
     </div>
     <div class="bar"><i></i></div>
-    <div style="margin-top:14px">${ofs || `<div class="empty"><div class="big">${IC.reloj()}</div>${fijo ? 'Aún nadie lo toma. Si demora, prueba con una franja de entrega más amplia.' : 'Aún nadie responde. Si demora, sube un poco tu precio.'}</div>`}</div>
+    <div style="margin-top:14px">${ofs || `<div class="empty"><div class="big">${IC.reloj()}</div>${tr ? 'Aún nadie lo toma. Avisamos a todos los conductores con ese vehículo.' : fijo ? 'Aún nadie lo toma. Si demora, prueba con una franja de entrega más amplia.' : 'Aún nadie responde. Si demora, sube un poco tu precio.'}</div>`}</div>
     <button class="btn danger full" id="p-cancelar" style="margin-top:6px">Cancelar solicitud</button>
-    ${fijo && limitesPasajero().envios < MAX_ENVIOS_PASAJERO ? `<button class="btn suave full" id="p-otro">${IC.caja('sm')} Mandar otro envío mientras tanto</button>` : ''}`;
+    ${fijo && !tr && limitesPasajero().envios < MAX_ENVIOS_PASAJERO ? `<button class="btn suave full" id="p-otro">${IC.caja('sm')} Mandar otro envío mientras tanto</button>` : ''}`;
   $('#b-pedidos').onclick = desenfocar;
   const otro = $('#p-otro');
   if (otro) otro.onclick = () => { resetViaje(); S.tipo = 'paquete'; S.paso = 'form'; render(); };
@@ -5074,9 +5150,9 @@ function pasoEsperando(sh) {
 }
 
 const ETIQUETAS = {
-  aceptado:   s => ['Conductor asignado', s.tipo === 'paquete' ? 'Va por tu paquete' : 'Se dirige a recogerte'],
+  aceptado:   s => ['Conductor asignado', esTrasteo(s) ? 'Va al punto de carga' : s.tipo === 'paquete' ? 'Va por tu paquete' : 'Se dirige a recogerte'],
   en_camino:  s => ['En camino', 'Puedes seguirlo en el mapa'],
-  a_bordo:    s => [s.tipo === 'paquete' ? 'Paquete a bordo' : 'Viaje en curso', 'Rumbo al destino'],
+  a_bordo:    s => [esTrasteo(s) ? 'Carga a bordo' : s.tipo === 'paquete' ? 'Paquete a bordo' : 'Viaje en curso', 'Rumbo al destino'],
   finalizado: s => ['Finalizado', 'Gracias por viajar con Llevu']
 };
 
@@ -5091,9 +5167,21 @@ function compartirViaje(s) {
     `${paradasDe(s).length ? 'Destino final' : 'Voy a'}: ${s.destino_texto}\n` +
     `Punto de recogida: https://www.google.com/maps?q=${s.origen_lat},${s.origen_lng}\n` +
     `Destino: https://www.google.com/maps?q=${s.destino_lat},${s.destino_lng}`;
-  if (navigator.share) { navigator.share({ title: 'Mi viaje en Llevu', text: txt }).catch(() => {}); return; }
-  try { navigator.clipboard.writeText(txt); toast('Datos del viaje copiados, pégalos en tu chat'); }
-  catch (e) { toast('Tu navegador no permite compartir desde aquí', 'bad'); }
+  compartirTexto('Mi viaje en Llevu', txt);
+}
+/* Compartir con lo que tenga el teléfono (WhatsApp, Telegram, SMS...).
+   En el APK lo abre Android: el WebView no trae navigator.share. */
+function compartirTexto(titulo, txt) {
+  if (enApp()) return nativo({ tipo: 'compartir', titulo, texto: txt });
+  if (navigator.share) { navigator.share({ title: titulo, text: txt }).catch(() => {}); return; }
+  try { navigator.clipboard.writeText(txt); toast('Texto copiado, pégalo en tu chat'); }
+  catch (e) { window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank', 'noopener'); }
+}
+/* Invitaciones: el boca a boca es lo que más usuarios y conductores trae. */
+function invitar(aConductor) {
+  compartirTexto('Llevu', aConductor
+    ? `¿Tienes carro, moto, camioneta o camión? Gana dinero con Llevu en Quito: te conectas cuando quieras, ves el precio antes de aceptar y cobras en efectivo. Regístrate como conductor aquí: ${URL_CONDUCTOR}`
+    : `Te recomiendo Llevu para pedir viajes, envíos y trasteos en Quito. En los viajes tú pones el precio y pagas en efectivo al conductor. Descárgala aquí: ${URL_WEB}`);
 }
 
 /* PIN de viaje (como Uber): el pasajero se lo dice al conductor al
@@ -5146,11 +5234,11 @@ function pasoViaje(sh) {
       <div class="rail"><div class="l1"></div><div class="line"></div><div class="l2"></div></div>
       <div><div class="dim">Recogida</div><div style="font-weight:500">${esc(s.origen_texto)}</div></div>
       ${paradasDe(s).map((q, i) => `<div style="margin-top:8px"><div class="dim">Destino ${i + 1}</div><div style="font-weight:500">${esc(q.texto || '')}</div></div>`).join('')}
-      <div style="margin-top:10px"><div class="dim">${paradasDe(s).length ? 'Destino final' : 'Destino'}${envio ? ' · entrega a ' + esc(s.destinatario || '') : ''}</div><div style="font-weight:500">${esc(s.destino_texto)}</div></div>
+      <div style="margin-top:10px"><div class="dim">${paradasDe(s).length ? 'Destino final' : 'Destino'}${envio && !esTrasteo(s) ? ' · entrega a ' + esc(s.destinatario || '') : ''}</div><div style="font-weight:500">${esc(s.destino_texto)}</div></div>
     </div></div>
     ${tarjetaMensajes(s)}
     <div class="row" style="margin-top:10px">
-      <button class="btn sm suave" id="p-compartir">Compartir ${envio ? 'envío' : 'viaje'}</button>
+      <button class="btn sm suave" id="p-compartir">Compartir ${queEs(s)}</button>
       <button class="btn sm" id="p-mapa">Ver recorrido</button>
     </div>
     <div class="row" style="margin-top:8px">
@@ -5164,9 +5252,9 @@ function pasoViaje(sh) {
   $('#p-ayuda').onclick = () => modalNuevoTicket(s);
   pintarEta();
   $('#p-cancelar').onclick = async () => {
-    if (s.estado === 'a_bordo') return toast(envio ? 'El paquete ya va en camino. Si hay un problema, repórtalo a soporte' : 'Ya vas en camino. Si hay un problema, repórtalo a soporte', 'bad');
+    if (s.estado === 'a_bordo') return toast(esTrasteo(s) ? 'Tus cosas ya van en camino. Si hay un problema, repórtalo a soporte' : envio ? 'El paquete ya va en camino. Si hay un problema, repórtalo a soporte' : 'Ya vas en camino. Si hay un problema, repórtalo a soporte', 'bad');
     if (!await cancelarCon(s)) return;
-    volverConDatos(s, `${envio ? 'Envío' : 'Viaje'} cancelado. Tus puntos y datos quedan listos por si quieres pedir de nuevo`);
+    volverConDatos(s, `${QueEs(s)} cancelado. Tus puntos y datos quedan listos por si quieres pedir de nuevo`);
   };
 }
 
@@ -5270,6 +5358,11 @@ function planificarParadas() {
 }
 function rotuloParada(p) {
   const s = p.s, envio = s.tipo === 'paquete';
+  if (esTrasteo(s)) {
+    const quien = nombreCorto(s.pasajero_nombre);
+    if (p.tipo === 'parada') return `Destino ${p.i + 1} · trasteo de ${quien}`;
+    return p.tipo === 'recoger' ? 'Cargar el trasteo de ' + quien : 'Descargar el trasteo de ' + quien;
+  }
   if (p.tipo === 'parada') return `Destino ${p.i + 1} · ${envio ? 'envío a ' + (s.destinatario || 'destinatario') : nombreCorto(s.pasajero_nombre)}`;
   if (p.tipo === 'recoger') return envio ? 'Recoger paquete de ' + nombreCorto(s.pasajero_nombre) : 'Recoger a ' + nombreCorto(s.pasajero_nombre);
   return envio ? 'Entregar a ' + (s.destinatario || 'destinatario') : 'Dejar a ' + nombreCorto(s.pasajero_nombre);
@@ -5283,10 +5376,10 @@ function accionParada(p) {
   if (p.tipo === 'parada') return s.estado === 'a_bordo' ? { t: 'Pasé por este destino', local: true } : null;
   if (p.tipo === 'recoger') {
     if (!envio && s.estado === 'aceptado') return { t: 'Voy en camino', next: 'en_camino' };
-    return { t: envio ? 'Recogí el paquete' : 'Recogí al pasajero', next: 'a_bordo' };
+    return { t: esTrasteo(s) ? 'Terminé de cargar' : envio ? 'Recogí el paquete' : 'Recogí al pasajero', next: 'a_bordo' };
   }
   if (s.estado !== 'a_bordo') return null;
-  return { t: envio ? 'Entregué el paquete' : 'Finalizar viaje', next: 'finalizado' };
+  return { t: esTrasteo(s) ? 'Terminé el trasteo' : envio ? 'Entregué el paquete' : 'Finalizar viaje', next: 'finalizado' };
 }
 
 /* El conductor escribe el PIN que le dicta el pasajero. La base lo
@@ -5316,7 +5409,7 @@ function pedirPinViaje(s, alIniciar) {
       limpiarPin('viaje'); ins[0].focus();
     } catch (e) {
       $('#pv-err').textContent = /iniciar_viaje_con_pin|function|schema cache/i.test(e.message || '')
-        ? 'Falta actualizar el servidor (migración v5). Avisa al administrador.'
+        ? 'No se pudo validar el PIN ahora. Escríbenos en Ayuda.'
         : explicarError(e, 'iniciarConPin');
     }
     b.disabled = false; b.textContent = 'Iniciar viaje';
@@ -5351,7 +5444,8 @@ function panelRuta(sh) {
   const dir = dirParada(sel);
   const chips = [
     `<span class="chipdato acento">${IC.billete('sm')}${money(s.precio_final || s.precio_ofrecido)}</span>`,
-    envio ? `<span class="chipdato">${IC.caja('sm')}${(TAMANOS[s.tamano] || {}).t || 'Envío'} · ${urgDe(s.urgencia).t}</span>`
+    esTrasteo(s) ? `<span class="chipdato">${IC[s.vehiculo]('sm')}Trasteo en ${TRASTEO[s.vehiculo].t.toLowerCase()}${s.ayudantes ? ` · ${s.ayudantes} ayudante${s.ayudantes > 1 ? 's' : ''}` : ''}</span>`
+    : envio ? `<span class="chipdato">${IC.caja('sm')}${(TAMANOS[s.tamano] || {}).t || 'Envío'} · ${urgDe(s.urgencia).t}</span>`
           : `<span class="chipdato">${IC.personas('sm')}${s.pasajeros || 1} pasajero${(s.pasajeros || 1) > 1 ? 's' : ''}</span>`,
     envio && s.descripcion ? `<span class="chipdato">${IC.sobre('sm')}${esc(s.descripcion)}</span>` : '',
     paradasDe(s).length ? `<span class="chipdato">${IC.ruta('sm')}${paradasDe(s).length + 1} destinos</span>` : '',
@@ -5387,7 +5481,7 @@ function panelRuta(sh) {
         <a class="iconacc" href="tel:${esc(o.tel)}" aria-label="Llamar">${IC.telefono()}</a>
         <button class="iconacc" id="c-mapa" aria-label="Ver el recorrido completo">${IC.ruta()}</button>
       </div>
-      ${envio && s.destinatario_tel && sel.tipo === 'entregar' ? `<a class="btn sm full" href="tel:${esc(s.destinatario_tel)}" style="margin-top:8px">Llamar a quien recibe (${esc(s.destinatario || '')})</a>` : ''}
+      ${envio && !esTrasteo(s) && s.destinatario_tel && sel.tipo === 'entregar' ? `<a class="btn sm full" href="tel:${esc(s.destinatario_tel)}" style="margin-top:8px">Llamar a quien recibe (${esc(s.destinatario || '')})</a>` : ''}
     </div>
 
     ${paradas.length > 1 ? `
@@ -5433,7 +5527,7 @@ function panelRuta(sh) {
       s.precio_final = s.precio_final || s.precio_ofrecido;
       S.activos = S.activos.filter(x => x.id !== s.id);
       if (s.tipo === 'viaje') S.porCalificar.push({ ...s, estado: 'finalizado' });
-      toast(envio ? `Envío entregado · ganaste ${money(s.precio_final)}` : `Viaje finalizado · ganaste ${money(s.precio_final)}`);
+      toast(`${esTrasteo(s) ? 'Trasteo terminado' : envio ? 'Envío entregado' : 'Viaje finalizado'} · ganaste ${money(s.precio_final)}`);
       sonido('enviado');
     } else {
       S.activos = S.activos.map(x => x.id === s.id ? { ...x, estado: next } : x);
@@ -5469,16 +5563,18 @@ function tarjetaSolicitudDidi(s, idx, total) {
   const durViaje = +s.duracion_min || minRuta(distViaje);
   const esperando = S.ofertaEnviada && S.ofertaEnviada.solicitud_id === s.id;
   const esEnvio = s.tipo === 'paquete';
+  const tr = esTrasteo(s);
   const precio = +s.precio_ofrecido || 0;
   const totalKm = +(distYo + distViaje).toFixed(2);
   const porKm = totalKm > 0 ? (precio / totalKm) : 0;
   const viajes = s.pasajero_viajes != null ? s.pasajero_viajes : null;
-  const urg = esEnvio ? urgDe(s.urgencia) : null;
+  const urg = esEnvio && !tr ? urgDe(s.urgencia) : null;
 
   /* Fila de cabecera: lo que decide si se toma la carrera. */
   const meta = [
     `<span class="chipdato acento">${IC.billete('sm')}Efectivo</span>`,
-    esEnvio
+    tr ? (s.ayudantes ? `<span class="chipdato">${IC.personas('sm')}${s.ayudantes} ayudante${s.ayudantes > 1 ? 's' : ''}</span>` : '')
+    : esEnvio
       ? (s.tamano ? `<span class="chipdato">${IC.caja('sm')}${(TAMANOS[s.tamano] || {}).t || ''}</span>` : '')
       : (s.pasajeros ? `<span class="chipdato">${IC.personas('sm')}${s.pasajeros} pasajero${s.pasajeros > 1 ? 's' : ''}</span>` : ''),
     urg ? `<span class="chipdato ${s.urgencia === 'urgente' ? 'urge' : ''}">${IC.reloj('sm')}${urg.t}</span>` : '',
@@ -5488,7 +5584,7 @@ function tarjetaSolicitudDidi(s, idx, total) {
   /* Lo que no cabe arriba. Solo se ve con el panel a media altura. */
   const extras = [
     esEnvio && s.descripcion ? `<span class="chipdato">${IC.sobre('sm')}${esc(s.descripcion)}</span>` : '',
-    esEnvio && s.destinatario ? `<span class="chipdato">${IC.pin('sm')}Entregar a ${esc(s.destinatario)}</span>` : '',
+    esEnvio && !tr && s.destinatario ? `<span class="chipdato">${IC.pin('sm')}Entregar a ${esc(s.destinatario)}</span>` : '',
     ...paradasDe(s).map((q, i) => `<span class="chipdato"><span class="num-mini">${i + 1}</span>${esc(q.texto || 'Destino ' + (i + 1))}</span>`),
     s.notas ? `<span class="chipdato">${IC.nota('sm')}${esc(s.notas)}</span>` : '',
     porKm ? `<span class="chipdato">${IC.ruta('sm')}${money(porKm)} por km · ${totalKm} km en total</span>` : ''
@@ -5527,14 +5623,14 @@ function tarjetaSolicitudDidi(s, idx, total) {
         <div class="t1"><span class="marca a"></span>
           <span><span class="et">Ir a recoger</span><br><span class="vl">${etaYo} min · ${distYo} km</span></span></div>
         <div class="t1"><span class="marca b"></span>
-          <span><span class="et">${esEnvio ? 'Llevar el paquete' : 'Llevar al pasajero'}</span><br><span class="vl">${durViaje} min · ${distViaje} km</span></span></div>
+          <span><span class="et">${tr ? 'Llevar la carga' : esEnvio ? 'Llevar el paquete' : 'Llevar al pasajero'}</span><br><span class="vl">${durViaje} min · ${distViaje} km</span></span></div>
       </div>
 
       ${esperando
         ? `<div class="wait" style="margin-top:12px"><div class="spin"></div><div class="dim">Ofertaste ${money(S.ofertaEnviada.precio)}, esperando respuesta</div></div>`
         : `<div class="didi-acciones">
             <button class="btn primary full" data-ok="${s.id}">
-              ${esEnvio ? 'Tomar el envío por ' + money(precio) : 'Aceptar por ' + money(precio)}
+              ${esEnvio ? `Tomar el ${queEs(s)} por ${money(precio)}` : 'Aceptar por ' + money(precio)}
             </button>
             ${!esEnvio ? `<button class="btn suave full oculta-compacta" data-otro="${s.id}">Pedir otro precio</button>` : ''}
             ${esDespachador() && !s.liberada && S.ajustes && !S.ajustes.solicitudes_para_todos
@@ -5725,7 +5821,7 @@ async function enviarOferta(s, precio) {
         S.ofertaEnviada = null;
         S.cercanas = S.cercanas.filter(x => x.id !== s.id);
         sonido('aceptado'); vibrar(RING_VIBRA);
-        toast(`${s.tipo === 'paquete' ? 'Envío' : 'Viaje'} asignado. Ya está en tu ruta`);
+        toast(`${QueEs(s)} asignado. Ya está en tu ruta`);
         sincronizarSeguimiento();
         mapa.firma = null;
         return render();
@@ -5755,7 +5851,7 @@ async function enviarOferta(s, precio) {
       try { await cargarPerfil(); } catch (_) {}
       const hab = estadoConductor();
       if (!hab.ok) toast(hab.motivo, 'bad');
-      else toast('Tu cuenta está en orden: si vuelve a fallar, hay que revisar las reglas de la tabla ofertas en Supabase (parche_ofertas_rls.sql)', 'bad');
+      else toast('No pudiste tomar esta solicitud. Prueba con otra; si vuelve a pasar, escríbenos en Ayuda', 'bad');
       pintarTop(); render();
       return;
     }
@@ -5776,7 +5872,7 @@ function modalRecorrido(s, conAcciones = false) {
   modal(`<div class="grip"></div>
     <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
       <h2>Recorrido</h2>
-      <div class="dim" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${fijo ? 'Envío' : 'Viaje'} de ${esc(s.pasajero_nombre || 'un pasajero')}</div>
+      <div class="dim" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${QueEs(s)} de ${esc(s.pasajero_nombre || 'un pasajero')}</div>
     </div>
     <div class="mapabox">
       <div id="map2" style="position:absolute;inset:0"></div>
@@ -5791,7 +5887,7 @@ function modalRecorrido(s, conAcciones = false) {
           ${botonesNav(S.pos, A)}</div>
         <div class="v" id="leg1">${tramo(k1, m1)}</div></div>` : ''}
       <div class="leg"><div class="n">${soyConductor ? '2' : '1'}</div>
-        <div class="grow"><div style="font-weight:600">${fijo ? 'Llevar el paquete' : 'Llevar al pasajero'}</div>
+        <div class="grow"><div style="font-weight:600">${esTrasteo(s) ? 'Llevar la carga' : fijo ? 'Llevar el paquete' : 'Llevar al pasajero'}</div>
           ${paradasDe(s).map((q, i) => `<div class="dim"><span class="num-mini">${i + 1}</span>${esc(q.texto || 'Destino ' + (i + 1))}</div>`).join('')}
           <div class="dim">${esc(s.destino_texto)}</div>
           ${soyConductor ? botonesNav(A, B) : ''}</div>
@@ -5802,7 +5898,7 @@ function modalRecorrido(s, conAcciones = false) {
         <div class="v" id="legT">${tramo(soyConductor ? +(k1 + k2).toFixed(2) : k2, soyConductor ? m1 + m2 : m2)}</div></div>
       <div class="leg"><div class="n">$</div>
         <div class="grow"><div style="font-weight:600">${soyConductor ? 'Recibes' : 'Pagas'}</div>
-          <div class="dim">${fijo ? 'Precio fijo del envío' : 'Efectivo al terminar'}</div></div>
+          <div class="dim">${fijo ? `Precio fijo del ${queEs(s)}` : 'Efectivo al terminar'}</div></div>
         <div class="v">${money(s.precio_final || s.precio_ofrecido)}</div></div>
     </div>
     ${conAcciones ? `<div class="row" style="margin-top:10px">
@@ -5881,13 +5977,13 @@ async function pintarActividad(sh) {
   sh.innerHTML = `
     <h2 style="margin-bottom:12px">Actividad</h2>
     <div class="stats">
-      <div class="stat"><div class="n">${hechos.length}</div><div class="l">${S.modo === 'conductor' ? 'Servicios' : 'Viajes'}</div></div>
+      <div class="stat"><div class="n">${hechos.length}</div><div class="l">Servicios</div></div>
       <div class="stat"><div class="n">${money(total)}</div><div class="l">${S.modo === 'conductor' ? 'Ganado' : 'Gastado'}</div></div>
       <div class="stat"><div class="n">${money(totalHoy)}</div><div class="l">Hoy</div></div>
     </div>
     ${h.length ? `<div class="card" style="padding:2px 14px">${h.map((x, i) => `
       <button class="rowbtn" data-h="${i}">
-        <div class="ico">${x.tipo === 'paquete' ? IC.caja() : IC.carro()}</div>
+        <div class="ico">${esTrasteo(x) ? IC[x.vehiculo]() : x.tipo === 'paquete' ? IC.caja() : IC.carro()}</div>
         <div class="grow"><div class="t">${esc(x.destino_texto || '—')}</div>
           <div class="s">${new Date(x.creado_en).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · ${x.estado === 'cancelado' ? 'cancelado' : x.distancia_km + ' km'}</div></div>
         <div class="amt">${x.estado === 'cancelado' ? '—' : money(montoDe(x))}</div>
@@ -5901,7 +5997,7 @@ function modalServicio(x) {
   const otro = S.modo === 'conductor' ? x.pasajero_nombre : x.conductor_nombre;
   const cancelado = x.estado === 'cancelado';
   modal(`<div class="grip"></div>
-    <div class="head"><div class="grow"><h2>${x.tipo === 'paquete' ? 'Envío' : 'Viaje'}</h2>
+    <div class="head"><div class="grow"><h2>${QueEs(x)}</h2>
       <div class="dim">${new Date(x.creado_en).toLocaleString('es-EC', { day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })}</div></div>
       <span class="badge ${cancelado ? 'warn' : 'ok'}">${cancelado ? 'Cancelado' : 'Finalizado'}</span></div>
     <div class="card"><div class="route">
@@ -5925,18 +6021,14 @@ function modalServicio(x) {
   $('#ac-mapa').onclick = () => { cerrarModal(); modalRecorrido(x); };
   $('#ac-sop').onclick = () => { cerrarModal(); modalNuevoTicket(x); };
   const rep = $('#ac-rep');
-  if (rep) rep.onclick = async () => {
+  /* Antes se armaba a mano y un trasteo repetido salía como envío en carro.
+     restaurarPedido() ya sabe reconstruir los tres tipos. */
+  if (rep) rep.onclick = () => {
     cerrarModal();
-    S.tipo = x.tipo;
-    S.tamano = x.tamano || 'pequeno';
-    S.urgencia = x.urgencia === '1h' ? '2h' : (x.urgencia || 'urgente');
-    S.pasajeros = x.pasajeros || 1;
-    S.vehEnvio = x.vehiculo === 'moto' ? 'moto' : 'carro';
-    S.origen  = { lat: +x.origen_lat,  lng: +x.origen_lng,  texto: x.origen_texto };
-    S.destino = { lat: +x.destino_lat, lng: +x.destino_lng, texto: x.destino_texto };
-    S.paradas = paradasDe(x).slice(0, MAX_PARADAS);
-    S.ultimoPunto = S.destino;
-    S.km = kmTramos(puntosPedido()); S.dur = minRuta(S.km);
+    resetViaje();
+    restaurarPedido(x);
+    if (S.urgencia === '1h') S.urgencia = '2h';
+    S.paradas = S.paradas.slice(0, MAX_PARADAS);
     S.paso = 'form';
     mapa.firma = null;
     setVista('inicio');
@@ -6203,7 +6295,7 @@ function informarNativo(sesion) {
       tipo: 'sesion', url: CFG.SUPABASE_URL, key: CFG.SUPABASE_ANON_KEY,
       token: ses.access_token, refresh: ses.refresh_token, expira: ses.expires_at,
       sesion: JSON.stringify(ses), uid: S.user.id, modo: S.modo, enLinea: !!S.enLinea,
-      nombre: (S.perfil && S.perfil.nombre) || '', vehiculo: miVehiculo()
+      nombre: (S.perfil && S.perfil.nombre) || '', vehiculo: miVehiculo(), despachador: esDespachador()
     });
   };
   if (sesion) return mandar(sesion);
@@ -6256,7 +6348,32 @@ window.rutaNativo = {
   /* se tocó una notificación: vuelve a leer todo */
   refrescar() { alVolver(); },
   /* avance de la descarga de una versión nueva del APK */
-  actualizacion(estado, pct, msg) { progresoActualizacion(estado, pct, msg); }
+  actualizacion(estado, pct, msg) { progresoActualizacion(estado, pct, msg); },
+  /* Botón atrás de Android. Devuelve true si la página lo usó (cerrar una
+     ventana, volver un paso); con false la app se minimiza. */
+  atras() {
+    const m = $('#modal');
+    if (!m.classList.contains('hidden')) {
+      if ($('#pol-aceptar')) return true;          // términos obligatorios: se responden con sus botones
+      cerrarModal(); return true;
+    }
+    if (!$('#aviso-cap').classList.contains('hidden')) return true;
+    if (!$('#menu-top').classList.contains('hidden')) { $('#brand-menu').click(); return true; }
+    if (S.eligiendo) { cerrarSelector(); return true; }
+    if (!S.user) return false;
+    if (S.vista !== 'inicio') { setVista('inicio'); return true; }
+    if (S.modo === 'pasajero' && !S.solicitud) {
+      if (S.paso === 'precio') { S.paso = 'detalles'; render(); return true; }
+      if (S.paso === 'detalles') {
+        const i = PASOS_ENVIO.indexOf(S.pasoEnvio);
+        if (S.tipo === 'paquete' && i > 0) S.pasoEnvio = PASOS_ENVIO[i - 1];
+        else S.paso = 'form';
+        render(); return true;
+      }
+    }
+    if (S.modo === 'pasajero' && S.solicitud && S.activos.length > 1) { desenfocar(); return true; }
+    return false;
+  }
 };
 
 /* En el APK los enlaces externos (Waze, llamadas, WhatsApp, correo) se
@@ -6309,6 +6426,11 @@ function pintarPerfil(sh) {
         <div class="grow"><div class="t">Mis lugares</div>
           <div class="s">${S.lugares.length ? esc(S.lugares.map(l => l.etiqueta).join(' · ')) : 'Guarda casa y trabajo para pedir con un toque'}</div></div>
         <div class="fin">›</div></button>
+      <button class="rowbtn" id="pf-invitar">
+        <div class="ico">${IC.regalo()}</div>
+        <div class="grow"><div class="t">Invita a tus amigos</div>
+          <div class="s">Comparte Llevu por WhatsApp o donde quieras</div></div>
+        <div class="fin">›</div></button>
       <button class="rowbtn" id="pf-ayuda">
         <div class="ico">${IC.chat()}</div>
         <div class="grow"><div class="t">Ayuda y soporte</div>
@@ -6354,12 +6476,15 @@ function pintarPerfil(sh) {
       <div class="kv"><span class="k">Estado</span><span class="v">${v.aprobado
         ? '<span class="badge ok">Aprobado</span>' : '<span class="badge warn">En revisión</span>'}</span></div></div>`
       : `<button class="btn full" id="pf-veh" style="margin-top:10px">Registrar vehículo</button>`}
+    <button class="btn suave full" id="pf-inv-cond" style="margin-top:10px">${IC.personas('sm')} Invitar a otros conductores</button>
 
     <button class="btn danger full" id="pf-salir" style="margin-top:14px">Cerrar sesión</button>
-    <p class="fine" style="margin-top:14px">Llevu funciona con pago en efectivo. El precio de los viajes lo acuerdas con el conductor; el de los envíos es fijo.</p>`;
+    <p class="fine" style="margin-top:14px">Llevu funciona con pago en efectivo. El precio de los viajes lo acuerdas con el conductor; el de los envíos y trasteos es fijo.</p>`;
   $('#sw-rol').onclick = () => setModo(S.modo === 'conductor' ? 'pasajero' : 'conductor');
   $('#pf-editar').onclick = modalSoporteEdicion;
   $('#pf-lugares').onclick = modalLugares;
+  $('#pf-invitar').onclick = () => invitar(false);
+  $('#pf-inv-cond').onclick = () => invitar(true);
   $('#pf-ayuda').onclick = () => setVista('ayuda');
   $('#pf-pin').onclick = modalCambiarPin;
   const bv = $('#pf-veh'); if (bv) bv.onclick = () => modalVehiculo();
@@ -6425,7 +6550,7 @@ function modalSoporteEdicion() {
       <p style="margin:0 0 12px">Por políticas de seguridad, para corregir o cambiar tus datos personales (nombre, número de identidad o celular) debes comunicarte directamente con soporte para que un asesor te ayude con la validación.</p>
       <div class="card" style="line-height:1.6;background:var(--panel2)">
         <div><b>Responsable:</b> César Santana</div>
-        <div style="margin-top:4px"><b>Correo de soporte:</b> <a href="mailto:abulingo.help@gmail.com" style="color:var(--azul)">abulingo.help@gmail.com</a></div>
+        <div style="margin-top:4px"><b>Correo de soporte:</b> <a href="mailto:${CORREO_SOPORTE}" style="color:var(--azul)">${CORREO_SOPORTE}</a></div>
       </div>
     </div>
     <div class="row">
@@ -6438,43 +6563,6 @@ function modalSoporteEdicion() {
   $('#ed-soporte').onclick = () => {
     cerrarModal();
     setVista('ayuda');
-  };
-}
-
-/* Editar nombre, cédula y celular sin salir de la app */
-function modalDatos() {
-  const p = S.perfil || {};
-  modal(`<div class="grip"></div>
-    <h2>Mis datos</h2>
-    <p class="dim" style="margin:6px 0 14px">El correo no se puede cambiar desde aquí: escríbenos a soporte si lo necesitas.</p>
-    <div class="field"><label for="md-nom">Nombre y apellido</label>
-      <input id="md-nom" class="input" autocomplete="name" value="${esc(p.nombre || '')}"></div>
-    <div class="row">
-      <div class="field"><label for="md-ced">Número de identidad</label>
-        <input id="md-ced" class="input" inputmode="numeric" maxlength="15" value="${esc(p.cedula || '')}"></div>
-      <div class="field"><label for="md-cel">Celular</label>
-        <input id="md-cel" class="input" inputmode="tel" maxlength="10" value="${esc(p.celular || '')}"></div>
-    </div>
-    <button class="btn primary full" id="md-ok" style="margin-top:10px">Guardar cambios</button>
-    <button class="btn ghost full" id="md-x">Cancelar</button>`);
-  $('#md-x').onclick = cerrarModal;
-  $('#md-ok').onclick = async () => {
-    const nombre = $('#md-nom').value.trim();
-    const cedula = $('#md-ced').value.trim();
-    const celular = $('#md-cel').value.trim();
-    if (nombre.split(/\s+/).length < 2) return toast('Escribe nombre y apellido', 'bad');
-    const rc = revisarCedula(cedula);
-    if (!rc.ok && rc.duro) return toast(rc.motivo, 'bad');
-    if (!rc.ok && !await confirmar('Revisa tu cédula', rc.motivo + '. Si estás seguro de que el número es correcto, puedes continuar.', 'Es correcta, continuar')) return;
-    if (!celularValido(celular)) return toast('El celular debe tener 10 dígitos y empezar en 09', 'bad');
-    const btn = $('#md-ok'); btn.disabled = true; btn.textContent = 'Guardando...';
-    try {
-      await S.api.guardarPerfil({ nombre, cedula, celular });
-      cerrarModal(); toast('Datos actualizados'); pintarTop(); render();
-    } catch (e) {
-      btn.disabled = false; btn.textContent = 'Guardar cambios';
-      toast(e.code === '23505' ? 'Esa cédula ya está registrada en otra cuenta' : e.message, 'bad');
-    }
   };
 }
 
@@ -6586,9 +6674,10 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () 
   if (S.tema === 'auto') aplicarTema();
 });
 /* Los tres distintivos de la portada se rellenan con los iconos SVG */
-[['#hc-1', 'carro'], ['#hc-2', 'caja'], ['#hc-3', 'reloj']].forEach(([sel, ic]) => {
+[['#hc-1', 'carro'], ['#hc-2', 'caja'], ['#hc-3', 'camioneta']].forEach(([sel, ic]) => {
   const el = $(sel); if (el) el.insertAdjacentHTML('afterbegin', IC[ic]('sm'));
 });
+{ const c = $('#correo-sop'); if (c) { c.textContent = CORREO_SOPORTE; c.href = 'mailto:' + CORREO_SOPORTE; } }
 armarMenuTop();
 armarPines();
 window.addEventListener('online', estadoRed);
@@ -6645,7 +6734,7 @@ $$('#nav button').forEach(b => b.onclick = () => setVista(b.dataset.vista));
    ruta_app/pubspec.yaml en cada APK nuevo: la app compara este build con
    el de la tabla app_version (lo pone el admin) para saber si hay una
    versión más nueva que instalar. */
-const VERSION_APP = { nombre: '1.3.1', build: 6 };
+const VERSION_APP = { nombre: '1.5.0', build: 9 };
 
 /* Una sola ventana centrada con cola: si hay una actualización y dos
    anuncios se muestran uno tras otro, nunca encimados. */

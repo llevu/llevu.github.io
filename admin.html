@@ -175,6 +175,8 @@ textarea.input{resize:vertical;min-height:46px}
     <div class="grow"></div>
     <span class="dim" id="quien"></span>
     <button class="btn sm" id="b-reparto" title="Quién recibe las solicitudes nuevas">Solicitudes: …</button>
+    <button class="btn sm" id="b-autoact" title="Si los pasajeros quedan activos solos al registrar su rostro">Pasajeros: …</button>
+    <button class="btn sm" id="b-desbloq" title="Quitar el bloqueo por PIN equivocado de una cuenta">Desbloquear PIN</button>
     <button class="btn sm" id="b-sonido" title="Sonido de nuevas solicitudes">Sonido: sí</button>
     <button class="btn sm" id="b-salir">Salir</button>
   </header>
@@ -297,6 +299,14 @@ $('#b-salir').onclick = async () => {
   location.reload();
 };
 $('#b-reparto').onclick = alternarReparto;
+$('#b-autoact').onclick = alternarAutoActivar;
+$('#b-desbloq').onclick = async () => {
+  const correo = (prompt('Correo de la cuenta que quedó bloqueada por PIN equivocado:') || '').trim().toLowerCase();
+  if (!correo) return;
+  const { error } = await sb.rpc('desbloquear_login', { p_correo: correo });
+  if (error) return toast(error.message, 'bad');
+  toast('Listo: ' + correo + ' ya puede volver a ingresar');
+};
 $('#b-sonido').onclick = () => {
   const on = localStorage.getItem('admin:sonido') !== '0';
   localStorage.setItem('admin:sonido', on ? '0' : '1');
@@ -378,10 +388,33 @@ async function cargarAjustes() {
   const { data, error } = await sb.from('ajustes').select('*').eq('id', 1).maybeSingle();
   A.ajustes = error ? null : data;
   const b = $('#b-reparto');
-  if (!A.ajustes) { b.textContent = 'Solicitudes: (falta migración v7)'; b.disabled = true; return; }
+  if (!A.ajustes) {
+    b.textContent = 'Solicitudes: (falta migración v7)'; b.disabled = true;
+    $('#b-autoact').textContent = 'Pasajeros: (falta migración v7)'; $('#b-autoact').disabled = true;
+    return;
+  }
   b.disabled = false;
   b.textContent = A.ajustes.solicitudes_para_todos ? 'Solicitudes: todos los conductores' : 'Solicitudes: solo despachador';
   b.classList.toggle('primary', !!A.ajustes.solicitudes_para_todos);
+  const ba = $('#b-autoact');
+  const auto = A.ajustes.activar_pasajeros;
+  ba.disabled = auto === undefined;
+  ba.textContent = auto === undefined ? 'Pasajeros: (falta migración v7)' : auto ? 'Pasajeros: activación automática' : 'Pasajeros: los activo yo';
+  ba.classList.toggle('primary', !!auto);
+}
+/* Activación de pasajeros: a mano (cada cuenta la revisa el admin) o
+   automática apenas registran su rostro. Los conductores siempre los
+   habilita el admin, igual que sus vehículos. */
+async function alternarAutoActivar() {
+  if (!A.ajustes || A.ajustes.activar_pasajeros === undefined) return;
+  const nuevo = !A.ajustes.activar_pasajeros;
+  if (!confirm(nuevo
+    ? '¿Activar solos a los pasajeros nuevos apenas registren la foto de su rostro? (Los conductores los sigues habilitando tú.)'
+    : '¿Volver a activar a mano a cada pasajero nuevo?')) return;
+  const { error } = await sb.from('ajustes').update({ activar_pasajeros: nuevo, actualizado_en: new Date().toISOString() }).eq('id', 1);
+  if (error) return toast(error.message, 'bad');
+  toast(nuevo ? 'Los pasajeros nuevos quedan activos solos al registrar su rostro' : 'Ahora activas tú a cada pasajero');
+  cargarAjustes();
 }
 async function alternarReparto() {
   if (!A.ajustes) return;
@@ -431,7 +464,7 @@ const presDe = id => A.presencia.find(x => x.usuario_id === id);
 const esNuevo = p => p.creado_en && (Date.now() - new Date(p.creado_en)) < NUEVOS_DIAS * 86400000;
 const durTxt = ms => { const t = Math.abs(ms), h = Math.floor(t / 3600000), m = Math.floor(t % 3600000 / 60000); return h ? `${h} h ${m} min` : `${m} min`; };
 const plazo = s => {
-  if (s.tipo !== 'paquete' || !s.aceptado_en || !['aceptado', 'en_camino', 'a_bordo'].includes(s.estado)) return '';
+  if (s.tipo !== 'paquete' || esTrasteo(s) || !s.aceptado_en || !['aceptado', 'en_camino', 'a_bordo'].includes(s.estado)) return '';
   const ms = new Date(s.entrega_limite || (new Date(s.aceptado_en).getTime() + 3600000)) - Date.now();
   return ms < 0 ? `<span class="badge bad">Atrasado ${durTxt(ms)}</span>` : `<span class="badge ${ms <= 15 * 60000 ? 'warn' : ''}">Entregar en ${durTxt(ms)}</span>`;
 };
@@ -457,7 +490,10 @@ function mensajeBienvenida(p) {
    su foto del rostro (listas para revisar), después las que aún no. */
 const porActivar = () => Object.values(A.perfiles).filter(p => !p.cuenta_activa)
   .sort((a, b) => (b.rostro_registrado - a.rostro_registrado) || (new Date(b.creado_en) - new Date(a.creado_en)));
-const vehTxt = v => `${v.tipo === 'moto' ? 'Moto' : 'Carro'} ${v.placa || ''} ${[v.marca, v.modelo, v.color].filter(Boolean).join(' ')}`.trim();
+const TIPO_VEH = { carro: 'Carro', moto: 'Moto', camioneta: 'Camioneta', camion: 'Camión' };
+const vehTxt = v => `${TIPO_VEH[v.tipo] || 'Carro'} ${v.placa || ''} ${[v.marca, v.modelo, v.color].filter(Boolean).join(' ')}`.trim();
+/* El trasteo se guarda como tipo 'paquete' con vehículo camioneta o camión */
+const esTrasteo = s => ['camioneta', 'camion'].includes(s.vehiculo);
 const paradasDe = s => (Array.isArray(s.paradas) ? s.paradas : []).filter(q => q && q.lat != null);
 const tkAbierto = t => t.estado === 'abierto' || t.estado === 'en_proceso';
 const porAtender = () => A.tickets.filter(t => +t.sin_leer_agente > 0 || t.estado === 'abierto');
@@ -523,23 +559,25 @@ function pintar() {
 function filaSolicitud(s) {
   const p = A.perfiles[s.pasajero_id] || {}, c = A.perfiles[s.conductor_id] || {};
   const est = ESTADO[s.estado] || ['', s.estado];
-  const env = s.tipo === 'paquete';
+  const tr = esTrasteo(s), env = s.tipo === 'paquete' && !tr;
   return `<div class="fila ${A.sel === s.id ? 'sel' : ''}" data-s="${esc(s.id)}">
-    <div class="ico ${esc(s.tipo)}">${env ? 'ENV' : 'VIA'}</div>
+    <div class="ico ${esc(s.tipo)}">${tr ? 'TRA' : env ? 'ENV' : 'VIA'}</div>
     <div style="min-width:0">
-      <div class="t">${env ? (s.vehiculo === 'moto' ? 'Envío en moto' : 'Envío') : 'Viaje'} · ${esc(s.pasajero_nombre || '—')} <span class="dim">${esc(p.celular || '')}</span></div>
+      <div class="t">${tr ? `Trasteo en ${TIPO_VEH[s.vehiculo].toLowerCase()}${s.ayudantes ? ` · ${s.ayudantes} ayudante(s)` : ''}` : env ? (s.vehiculo === 'moto' ? 'Envío en moto' : 'Envío') : 'Viaje'} · ${esc(s.pasajero_nombre || '—')} <span class="dim">${esc(p.celular || '')}</span></div>
       <div class="ruta-txt"><b>Desde:</b> <a href="${gmaps(s.origen_lat, s.origen_lng)}" target="_blank" rel="noopener">${esc(s.origen_texto || 'Ver en mapa')}</a></div>
       ${paradasDe(s).map((q, i) => `<div class="ruta-txt"><b>Destino ${i + 1}:</b> <a href="${gmaps(q.lat, q.lng)}" target="_blank" rel="noopener">${esc(q.texto || 'Ver en mapa')}</a></div>`).join('')}
       <div class="ruta-txt"><b>${paradasDe(s).length ? 'Destino final' : 'Hasta'}:</b> <a href="${gmaps(s.destino_lat, s.destino_lng)}" target="_blank" rel="noopener">${esc(s.destino_texto || 'Ver en mapa')}</a>
         ${env && s.destinatario ? ` · recibe ${esc(s.destinatario)} ${esc(s.destinatario_tel || '')}` : ''}</div>
       <div class="meta">
         <span class="badge ${est[0]}">${est[1]}</span>
-        ${env ? `<span class="badge">${esc(URG[s.urgencia] || 'Urgente')}</span>` : `<span class="badge">${s.pasajeros || 1} pasajero(s)</span>`}
+        ${tr ? '' : env ? `<span class="badge">${esc(URG[s.urgencia] || 'Urgente')}</span>` : `<span class="badge">${s.pasajeros || 1} pasajero(s)</span>`}
+        ${s.liberada ? '<span class="badge azul">Enviada a todos</span>' : ''}
         ${s.conductor_id ? `<span class="badge azul">${esc(s.conductor_nombre || '')} ${esc(c.celular || '')} ${s.placa ? '· ' + esc(s.placa) : ''}</span>` : ''}
         ${plazo(s)}
         ${A.pines && A.pines[s.id] ? `<span class="badge" title="PIN que el pasajero le da al conductor">PIN ${esc(A.pines[s.id])}</span>` : ''}
         <span class="badge">${hace(s.creado_en)}</span>
-        ${env && s.descripcion ? `<span class="badge">${esc(s.descripcion)}</span>` : ''}
+        ${(env || tr) && s.descripcion ? `<span class="badge">${esc(s.descripcion)}</span>` : ''}
+        ${s.notas ? `<span class="badge">Nota: ${esc(s.notas)}</span>` : ''}
         ${s.motivo_cancelacion ? `<span class="badge bad">${esc(s.motivo_cancelacion)}</span>` : ''}
       </div>
     </div>
