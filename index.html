@@ -34,11 +34,11 @@
   base-uri 'self';
   object-src 'none';
   form-action 'self';
-  script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
+  script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://maps.googleapis.com https://maps.gstatic.com;
   style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com;
   font-src 'self' data: https://fonts.gstatic.com;
-  img-src 'self' data: blob: https://*.cartocdn.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.supabase.co;
-  connect-src 'self' https://*.supabase.co wss://*.supabase.co https://router.project-osrm.org https://nominatim.openstreetmap.org https://cdn.jsdelivr.net;
+  img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.cartocdn.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://*.supabase.co;
+  connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.supabase.co wss://*.supabase.co https://router.project-osrm.org https://nominatim.openstreetmap.org https://cdn.jsdelivr.net;
   media-src 'self' blob: data: mediastream:;
   worker-src 'self' blob:;
   manifest-src 'self'">
@@ -951,6 +951,7 @@ html[data-tema="oscuro"] .candado{background:#2A2214;border-color:#5A4521}
      ejecutarlo. Antes supabase-js@2 traia "la ultima 2.x que hubiera",
      que es justo por donde entran los ataques a la cadena de suministro. -->
 <script src="vendor/leaflet.js"></script>
+<script src="vendor/Leaflet.GoogleMutant.js"></script>
 <script src="vendor/supabase.js"></script>
 <script>
 /* ============================================================
@@ -959,6 +960,12 @@ html[data-tema="oscuro"] .candado{background:#2A2214;border-color:#5A4521}
 
 /* ---- 1. Configuración (o usa el botón "Configurar Supabase") ---- */
 const CFG = {
+  /* Google Maps (Maps JavaScript API). La clave se ve en el navegador,
+     así que su protección está en Google Cloud: restringida a
+     https://llevu.github.io/* y __file_url__//* (la app), solo a Maps
+     JavaScript API y con tope diario de cargas. Vacía o rechazada, el
+     mapa sigue con las teselas de abajo. */
+  GMAPS_KEY: '',
   SUPABASE_URL: 'https://budyjhsqdydmrimtriox.supabase.co',      // ej: https://xxxxxxxx.supabase.co
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1ZHlqaHNxZHlkbXJpbXRyaW94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MTM2OTAsImV4cCI6MjEwNDE4OTY5MH0.LRKkQiTwexWBLYQZ1yYhU4y5fEApI2ZRzeMvi6xlcYs', // clave anon pública
 
@@ -1521,6 +1528,53 @@ const LIM_EC = { sur: -5.05, norte: 1.70, oeste: -81.15, este: -75.05 };
 const esOscuro = () => document.documentElement.dataset.tema === 'oscuro';
 const TILES  = () => esOscuro() ? CFG.TILES_OSCURO
   : (S.modo === 'conductor' ? CFG.TILES_CLARO : (TILES.sinOsm ? CFG.TILES_RESPALDO : CFG.TILES_LUGARES));
+/* Google Maps se carga una sola vez y solo si hay clave. Si Google
+   rechaza la clave o se pasa del tope diario, se apaga para el resto de
+   la sesión y los mapas vuelven a las teselas de siempre. */
+const GMAPS = {
+  estado: CFG.GMAPS_KEY ? 'cargando' : 'apagado',
+  listo: () => GMAPS.estado === 'listo' && !!(window.google && google.maps) && !!L.gridLayer.googleMutant,
+  cargar() {
+    if (GMAPS.estado !== 'cargando') return;
+    window.gm_authFailure = () => {
+      GMAPS.estado = 'apagado';
+      if (mapa.m) mapa.pintarTeselas();
+    };
+    window.__gmapsListo = () => {
+      if (GMAPS.estado !== 'cargando') return;
+      GMAPS.estado = 'listo';
+      if (mapa.m) mapa.pintarTeselas();
+    };
+    const sc = document.createElement('script');
+    sc.async = true;
+    sc.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(CFG.GMAPS_KEY)
+      + '&callback=__gmapsListo&loading=async&language=es&region=EC&v=weekly';
+    sc.onerror = () => { GMAPS.estado = 'apagado'; };
+    document.head.appendChild(sc);
+  }
+};
+const ESTILO_GMAPS_OSCURO = [
+  { elementType: 'geometry', stylers: [{ color: '#1d2433' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9aa6b8' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#111926' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2c3648' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3a4760' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0e1626' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#222b3b' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] }
+];
+/* El conductor ve un mapa limpio, sin locales, para que la ruta resalte. */
+const ESTILO_GMAPS_LIMPIO = [
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] }
+];
+/* Capa base de cualquier mapa: Google si está listo, si no las teselas. */
+const capaBase = (opc = {}) => GMAPS.listo()
+  ? L.gridLayer.googleMutant({
+      type: 'roadmap', maxZoom: 19,
+      styles: esOscuro() ? ESTILO_GMAPS_OSCURO : (S.modo === 'conductor' ? ESTILO_GMAPS_LIMPIO : [])
+    })
+  : L.tileLayer(TILES(), Object.assign({ maxZoom: 19, subdomains: 'abcd' }, opc));
 const AZUL   = () => esOscuro() ? '#5C9BFF' : '#0A5AFF';
 const CONTRA = () => esOscuro() ? '#0B121C' : '#ffffff';
 
@@ -1625,6 +1679,7 @@ const mapa = {
     }).setView([QUITO.lat, QUITO.lng], 14);
     this.m.attributionControl.setPrefix('Leaflet');
     this.pintarTeselas();
+    GMAPS.cargar();
     setTimeout(() => this.m.invalidateSize(), 250);
     this.vigilarTamano();
     /* Arrastrar o hacer zoom con el dedo manda: mientras el usuario esté
@@ -1657,14 +1712,15 @@ const mapa = {
     if (!this.m) return;
     /* keepBuffer guarda más teselas alrededor, así al arrastrar ya están
        cargadas; updateWhenIdle:false las pide mientras el dedo se mueve. */
-    const nueva = L.tileLayer(TILES(), {
-      maxZoom: 19, subdomains: 'abcd', keepBuffer: 6, updateWhenIdle: false, updateWhenZooming: false,
+    const usaGoogle = GMAPS.listo();
+    const nueva = capaBase({
+      keepBuffer: 6, updateWhenIdle: false, updateWhenZooming: false,
       detectRetina: false,
       attribution: S.modo === 'conductor' || esOscuro() ? '&copy; OpenStreetMap &copy; CARTO' : '&copy; OpenStreetMap'
     }).addTo(this.m);
     /* Respaldo: si las teselas de OpenStreetMap fallan antes de cargar
        ninguna, se cambia una sola vez al mapa de CARTO. */
-    if (TILES() === CFG.TILES_LUGARES) {
+    if (!usaGoogle && TILES() === CFG.TILES_LUGARES) {
       let fallos = 0, cargo = false;
       nueva.on('tileload', () => { cargo = true; });
       nueva.on('tileerror', () => {
@@ -5909,7 +5965,7 @@ function modalRecorrido(s, conAcciones = false) {
   setTimeout(async () => {
     if (!$('#map2')) return;
     mapaSec = L.map('map2', { zoomControl: false, attributionControl: false }).setView([A.lat, A.lng], 14);
-    L.tileLayer(TILES(), { maxZoom: 19, subdomains: 'abcd' }).addTo(mapaSec);
+    capaBase().addTo(mapaSec);
     const ico = (h, t = 22) => L.divIcon({ className: 'mk', html: h, iconSize: [t, t], iconAnchor: [t / 2, t / 2] });
     const capas = [];
 
@@ -6734,7 +6790,7 @@ $$('#nav button').forEach(b => b.onclick = () => setVista(b.dataset.vista));
    ruta_app/pubspec.yaml en cada APK nuevo: la app compara este build con
    el de la tabla app_version (lo pone el admin) para saber si hay una
    versión más nueva que instalar. */
-const VERSION_APP = { nombre: '1.5.0', build: 9 };
+const VERSION_APP = { nombre: '1.6.0', build: 10 };
 
 /* Una sola ventana centrada con cola: si hay una actualización y dos
    anuncios se muestran uno tras otro, nunca encimados. */
