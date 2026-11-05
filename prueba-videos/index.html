@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Videos sin internet</title>
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#111">
+<style>
+body{font-family:system-ui,sans-serif;background:#111;color:#eee;margin:0;padding:16px;max-width:640px;margin:auto}
+h1{font-size:22px}button{font-size:17px;padding:12px 18px;border:0;border-radius:10px;background:#2b7cff;color:#fff;cursor:pointer}
+button.rojo{background:#444}.v{background:#1c1c1c;border-radius:12px;padding:12px;margin:14px 0}
+video{width:100%;border-radius:8px;background:#000}.est{font-size:14px;margin:6px 0}
+#red{font-size:14px;padding:6px 10px;border-radius:8px;display:inline-block}
+</style></head><body>
+<h1>📦 Videos sin internet</h1>
+<div id="red"></div>
+<p><button id="bajar">⬇️ Descargar videos</button> <button id="borrar" class="rojo">🗑️ Borrar caché</button></p>
+<div id="lista"></div>
+<script>
+const VIDEOS=[{t:'Video de prueba (19 s)',u:'videos/prueba.mp4'}];
+const CACHE='videos-v1';
+const $=s=>document.querySelector(s);
+function red(){const r=$('#red');r.textContent=navigator.onLine?'🟢 Con internet':'🔴 Sin internet';r.style.background=navigator.onLine?'#143':'#511'}
+addEventListener('online',red);addEventListener('offline',red);red();
+async function pintar(){
+  const c=await caches.open(CACHE);$('#lista').innerHTML='';
+  for(const v of VIDEOS){
+    const ok=await c.match(v.u);
+    const d=document.createElement('div');d.className='v';
+    d.innerHTML=`<b>${v.t}</b><div class="est">${ok?'✅ Guardado en caché: se reproduce desde tu dispositivo':'☁️ No guardado: se reproduce desde internet'}</div><video controls playsinline preload="metadata" src="${v.u}"></video>`;
+    $('#lista').append(d);
+  }
+}
+$('#bajar').onclick=async()=>{
+  const b=$('#bajar');b.disabled=true;const c=await caches.open(CACHE);
+  for(const [i,v] of VIDEOS.entries()){b.textContent=`Descargando ${i+1}/${VIDEOS.length}…`;
+    try{const r=await fetch(v.u,{cache:'reload'});if(!r.ok)throw r.status;await c.put(v.u,r)}catch(e){alert('Error con '+v.t+': '+e)}}
+  if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+  b.textContent='⬇️ Descargar videos';b.disabled=false;pintar();
+};
+$('#borrar').onclick=async()=>{await caches.delete(CACHE);pintar()};
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+pintar();
+</script></body></html>
